@@ -169,7 +169,7 @@ export default function Recommendations() {
                       try {
                         await enrollCourse(course._id);
                       } catch (err) {
-                        alert("Failed to enroll.");
+                        alert(err.response?.data?.error || err.message || "Failed to enroll.");
                       }
                     }}
                   >

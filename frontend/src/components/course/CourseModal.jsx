@@ -6,7 +6,8 @@ export default function CourseModal() {
   const { selectedCourse, closeCourse, enrolledCourses } = useUiStore()
   if (!selectedCourse) return null
   const c = selectedCourse
-  const isEnrolled = (enrolledCourses || []).some(id => String(id) === String(c.id))
+  const currentCourseId = c._id || c.id
+  const isEnrolled = (enrolledCourses || []).some(id => String(id) === String(currentCourseId))
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(2,6,23,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
       <div className="card" style={{ width: 'min(800px, 95vw)', padding: '1rem' }}>
@@ -58,10 +59,9 @@ export default function CourseModal() {
               }
               onClick={async () => {
                 try {
-                  await enrollCourse(c.id)
-                  alert(`Enrolled in ${c.title}!`)
+                  await enrollCourse(currentCourseId)
                 } catch (err) {
-                  alert("Failed to enroll.")
+                  alert(err.response?.data?.error || err.message || "Failed to enroll.")
                 }
               }}
             >

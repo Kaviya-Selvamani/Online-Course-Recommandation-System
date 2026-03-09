@@ -96,6 +96,7 @@ export default function Courses() {
           const score = calcScore(course.scores);
           const meta = getMatch(score);
           const isEnrolled = enrolledCourses.some((id) => String(id) === String(course.id));
+          const externalCourseLink = course.courseUrl || "";
 
           return (
             <div className="card catalog-card lift" key={course.id} onClick={() => navigate(`/course/${course.id}`)}>
@@ -130,6 +131,21 @@ export default function Courses() {
                 </div>
 
                 <div className="course-card-actions" onClick={(event) => event.stopPropagation()}>
+                  <a
+                    className="btn bg"
+                    href={externalCourseLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ textDecoration: "none" }}
+                    onClick={(event) => {
+                      if (!externalCourseLink) {
+                        event.preventDefault();
+                        alert("Course link is unavailable for this item.");
+                      }
+                    }}
+                  >
+                    View
+                  </a>
                   <button
                     className="btn"
                     style={isEnrolled ? { background: "var(--ac2)", color: "#fff", border: "1px solid var(--ac)" } : { background: "var(--ac)", color: "#fff", border: "1px solid var(--ac)" }}
@@ -137,8 +153,8 @@ export default function Courses() {
                     onClick={async () => {
                       try {
                         await enrollCourse(course.id);
-                      } catch {
-                        alert("Failed to enroll.");
+                      } catch (err) {
+                        alert(err.response?.data?.error || err.message || "Failed to enroll.");
                       }
                     }}
                   >

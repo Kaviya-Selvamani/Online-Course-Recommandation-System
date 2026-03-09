@@ -1,0 +1,175 @@
+[
+    {
+        "title": "CS50: Introduction to Computer Science",
+        "provider": "Harvard University",
+        "platform": "edX",
+        "category": "Computer Science",
+        "difficulty": "Beginner",
+        "price": 0,
+        "isFree": true,
+        "rating": 4.9,
+        "tags": [
+            "Programming",
+            "C",
+            "Python",
+            "Algorithms"
+        ],
+        "courseUrl": "https://cs50.harvard.edu",
+        "description": "An introduction to the intellectual enterprises of computer science and the art of programming."
+    },
+    {
+        "title": "Machine Learning",
+        "provider": "Stanford University",
+        "platform": "Coursera",
+        "category": "AI/ML",
+        "difficulty": "Intermediate",
+        "price": 79,
+        "isFree": false,
+        "rating": 4.9,
+        "tags": [
+            "Machine Learning",
+            "AI",
+            "Data Science",
+            "Python"
+        ],
+        "courseUrl": "https://www.coursera.org/learn/machine-learning",
+        "description": "Learn the foundational concepts of machine learning, from linear regression to neural networks."
+    },
+    {
+        "title": "Programming for Everybody (Getting Started with Python)",
+        "provider": "University of Michigan",
+        "platform": "Coursera",
+        "category": "Computer Science",
+        "difficulty": "Beginner",
+        "price": 49,
+        "isFree": false,
+        "rating": 4.8,
+        "tags": [
+            "Python",
+            "Programming",
+            "Basics"
+        ],
+        "courseUrl": "https://www.coursera.org/learn/python",
+        "description": "This course aims to teach everyone the basics of programming computers using Python."
+    },
+    {
+        "title": "Introduction to Computational Thinking and Data Science",
+        "provider": "MIT OpenCourseWare",
+        "platform": "edX",
+        "category": "Data Science",
+        "difficulty": "Intermediate",
+        "price": 0,
+        "isFree": true,
+        "rating": 4.7,
+        "tags": [
+            "Python",
+            "Data Science",
+            "Computational Thinking"
+        ],
+        "courseUrl": "https://www.edx.org/course/introduction-to-computational-thinking-and-data-4",
+        "description": "An introduction to using computation to understand real-world phenomena."
+    },
+    {
+        "title": "Data Structures and Algorithms",
+        "provider": "IIT Delhi",
+        "platform": "NPTEL",
+        "category": "Computer Science",
+        "difficulty": "Advanced",
+        "price": 0,
+        "isFree": true,
+        "rating": 4.6,
+        "tags": [
+            "Algorithms",
+            "Data Structures",
+            "C++"
+        ],
+        "courseUrl": "https://nptel.ac.in/courses/106102064/",
+        "description": "In-depth study of foundational and advanced data structures and their analysis."
+    },
+    {
+        "title": "Deep Learning Specialization",
+        "provider": "DeepLearning.AI",
+        "platform": "Coursera",
+        "category": "AI/ML",
+        "difficulty": "Advanced",
+        "price": 49,
+        "isFree": false,
+        "rating": 4.9,
+        "tags": [
+            "Deep Learning",
+            "Neural Networks",
+            "TensorFlow"
+        ],
+        "courseUrl": "https://www.coursera.org/specializations/deep-learning",
+        "description": "Master deep learning, build and train neural network architectures such as Convolutional Neural Networks, Recurrent Neural Networks, LSTMs, Transformers."
+    },
+    {
+        "title": "AWS Certified Solutions Architect - Associate",
+        "provider": "Amazon Web Services",
+        "platform": "Coursera",
+        "category": "Cloud Computing",
+        "difficulty": "Intermediate",
+        "price": 49,
+        "isFree": false,
+        "rating": 4.7,
+        "tags": [
+            "AWS",
+            "Cloud Fundamentals",
+            "Architecture"
+        ],
+        "courseUrl": "https://www.coursera.org/professional-certificates/aws-cloud-solutions-architect",
+        "description": "Prepare for the AWS Certified Solutions Architect - Associate exam."
+    },
+    {
+        "title": "Blockchain Basics",
+        "provider": "University at Buffalo",
+        "platform": "Coursera",
+        "category": "Computer Science",
+        "difficulty": "Intermediate",
+        "price": 0,
+        "isFree": true,
+        "rating": 4.6,
+        "tags": [
+            "Blockchain",
+            "Bitcoin",
+            "Smart Contracts"
+        ],
+        "courseUrl": "https://www.coursera.org/learn/blockchain-basics",
+        "description": "Understand the essential concepts of blockchain technology and its fundamental components."
+    },
+    {
+        "title": "Full Stack Web Developer",
+        "provider": "Udacity",
+        "platform": "Udacity",
+        "category": "Web Development",
+        "difficulty": "Advanced",
+        "price": 399,
+        "isFree": false,
+        "rating": 4.7,
+        "tags": [
+            "Web Development",
+            "Python",
+            "SQL",
+            "JavaScript"
+        ],
+        "courseUrl": "https://www.udacity.com/course/full-stack-web-developer-nanodegree--nd0044",
+        "description": "Learn to design and develop powerful modern web applications that form the foundation for the apps, websites, and systems that people and businesses use every day."
+    },
+    {
+        "title": "Introduction to Philosophy",
+        "provider": "The University of Edinburgh",
+        "platform": "Coursera",
+        "category": "Humanities",
+        "difficulty": "Beginner",
+        "price": 0,
+        "isFree": true,
+        "rating": 4.5,
+        "tags": [
+            "Philosophy",
+            "Ethics",
+            "Epistemology"
+        ],
+        "courseUrl": "https://www.coursera.org/learn/philosophy",
+        "description": "An introduction to some of the main areas of research in contemporary philosophy."
+    }
+]

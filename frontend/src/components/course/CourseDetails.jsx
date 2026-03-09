@@ -8,6 +8,7 @@ export default function CourseDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { openExplain } = useOutletContext();
+  const enrolledCourses = useUiStore((s) => s.enrolledCourses) || [];
 
   const courseId = Number(id);
   const sel = COURSES.find((c) => c.id === courseId) || null;
@@ -15,11 +16,10 @@ export default function CourseDetails() {
   const [bar, setBar] = useState(false);
   useEffect(() => {
     if (sel) {
-      setBar(false);
       const t = setTimeout(() => setBar(true), 120);
       return () => clearTimeout(t);
     }
-  }, [sel?.id]);
+  }, [sel]);
 
   if (!sel) {
     return (
@@ -37,7 +37,6 @@ export default function CourseDetails() {
 
   const pct = calcScore(sel.scores);
   const meta = getMatch(pct);
-  const enrolledCourses = useUiStore((s) => s.enrolledCourses) || [];
   const isEnrolled = enrolledCourses.some(id => String(id) === String(sel.id));
 
   const items = [
@@ -81,9 +80,8 @@ export default function CourseDetails() {
               onClick={async () => {
                 try {
                   await enrollCourse(sel.id);
-                  alert(`Enrolled in "${sel.title}"!`);
                 } catch (err) {
-                  alert("Failed to enroll.");
+                  alert(err.response?.data?.error || err.message || "Failed to enroll.");
                 }
               }}
             >

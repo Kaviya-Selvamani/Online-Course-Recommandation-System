@@ -2,8 +2,21 @@ import { api, getAuthHeaders } from "./api.js";
 import { useUiStore } from "../store/ui.js";
 import { getSession, getToken, setSession } from "./session.js";
 
-export async function enrollCourse(courseId) {
+function showPopup(message) {
+  if (typeof window !== "undefined" && typeof window.alert === "function") {
+    window.alert(message);
+  }
+}
+
+export async function enrollCourse(courseId, options = {}) {
   if (!getToken()) throw new Error("Not logged in");
+  const { showSuccessPopup = true } = options;
+
+  const sessionBeforeEnroll = getSession();
+  const existingEnrolled = sessionBeforeEnroll?.user?.enrolledCourses || [];
+  const wasAlreadyEnrolled = existingEnrolled.some(
+    (id) => String(id) === String(courseId)
+  );
 
   try {
     const { data } = await api.post(
@@ -24,6 +37,10 @@ export async function enrollCourse(courseId) {
         });
       }
       useUiStore.getState().setEnrolledCourses(data.enrolledCourses || []);
+
+      if (showSuccessPopup && !wasAlreadyEnrolled) {
+        showPopup("Enrollment successful.");
+      }
     }
 
     return data;
@@ -43,6 +60,9 @@ export async function enrollCourse(courseId) {
           });
         }
         useUiStore.getState().setEnrolledCourses(current);
+      }
+      if (showSuccessPopup) {
+        showPopup("You are already enrolled in this course.");
       }
       return { success: true, enrolledCourses: current };
     }

@@ -27,6 +27,7 @@ export default function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
+  const [err, setErr] = useState("");
   const [interests, setInterests] = useState(["Machine Learning", "Python"]);
   const [skill, setSkill] = useState("Intermediate");
   const [goal, setGoal] = useState("ML Engineer");
@@ -49,11 +50,36 @@ export default function Register() {
     }
   }, [navigate]);
 
+  const validateAccountFields = () => {
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+
+    if (!trimmedName || !trimmedEmail || !pass) {
+      return "Name, email, and password are required.";
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      return "Please enter a valid email address.";
+    }
+    if (pass.length < 8) {
+      return "Password must be at least 8 characters.";
+    }
+
+    return "";
+  };
+
   const finish = async () => {
+    const validationError = validateAccountFields();
+    if (validationError) {
+      setErr(validationError);
+      setStep(1);
+      return;
+    }
+
+    setErr("");
     try {
       await serverRegister({
-        name: name || "Alex Kim",
-        email: email || "alex@uni.edu",
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
         password: pass,
         role: "student",
         adminId: null,
@@ -69,7 +95,7 @@ export default function Register() {
       navigate("/dashboard", { replace: true });
     } catch (error) {
       console.error("Registration error:", error);
-      alert(error.response?.data?.error || "Registration failed or user already exists");
+      setErr(error.response?.data?.error || "Registration failed.");
     }
   };
 
@@ -85,6 +111,7 @@ export default function Register() {
 
         <div className="auth-t">{["Create Account", "Your Interests", "Skill & Career", "Learning Pace", "Preferences", "Learning Details"][step - 1]}</div>
         <div className="auth-s">Step {step} of 6 · Build your learning profile</div>
+        {err ? <div className="err">⚠ {err}</div> : null}
 
         <div className="ob-prog">
           {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -253,7 +280,21 @@ export default function Register() {
           type="button"
           className="btn bp"
           style={{ width: "100%", marginTop: 16, padding: "11px 0", fontSize: 14, fontFamily: "var(--fd)", fontWeight: 700 }}
-          onClick={() => (step < 6 ? setStep((s) => s + 1) : finish())}
+          onClick={() => {
+            if (step < 6) {
+              if (step === 1) {
+                const validationError = validateAccountFields();
+                if (validationError) {
+                  setErr(validationError);
+                  return;
+                }
+              }
+              setErr("");
+              setStep((s) => s + 1);
+              return;
+            }
+            finish();
+          }}
         >
           {step < 6 ? "Continue →" : "Launch My Dashboard"}
         </button>

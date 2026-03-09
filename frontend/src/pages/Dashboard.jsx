@@ -181,8 +181,8 @@ export default function Dashboard() {
                     onClick={async () => {
                       try {
                         await enrollCourse(course._id);
-                      } catch {
-                        alert("Failed to enroll.");
+                      } catch (err) {
+                        alert(err.response?.data?.error || err.message || "Failed to enroll.");
                       }
                     }}
                   >
