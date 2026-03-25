@@ -41,7 +41,7 @@ const corsOptions = {
 
 console.log('CORS allowed origins:', allowedOrigins);
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+// Express 5 + path-to-regexp doesn't accept "*" here; cors middleware already handles preflight.
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
