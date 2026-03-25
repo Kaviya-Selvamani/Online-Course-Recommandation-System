@@ -1,6 +1,36 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
+const skillsSchema = new mongoose.Schema(
+    {
+        python: { type: Number, min: 0, max: 100, default: 0 },
+        machineLearning: { type: Number, min: 0, max: 100, default: 0 },
+        statistics: { type: Number, min: 0, max: 100, default: 0 },
+        algorithms: { type: Number, min: 0, max: 100, default: 0 },
+        dataScience: { type: Number, min: 0, max: 100, default: 0 },
+    },
+    { _id: false }
+);
+
+const learningPreferencesSchema = new mongoose.Schema(
+    {
+        preferredDifficultyLevel: {
+            type: String,
+            enum: ['Beginner', 'Intermediate', 'Advanced'],
+            default: 'Intermediate',
+        },
+        preferredPlatforms: {
+            type: [String],
+            default: [],
+        },
+        learningFormat: {
+            type: [String],
+            default: [],
+        },
+    },
+    { _id: false }
+);
+
 const userSchema = mongoose.Schema({
     name: {
         type: String,
@@ -13,6 +43,22 @@ const userSchema = mongoose.Schema({
         unique: true,
         trim: true,
         lowercase: true,
+    },
+    emailVerified: {
+        type: Boolean,
+        default: false,
+    },
+    emailVerificationCodeHash: {
+        type: String,
+    },
+    emailVerificationExpires: {
+        type: Date,
+    },
+    passwordResetCodeHash: {
+        type: String,
+    },
+    passwordResetExpires: {
+        type: Date,
     },
     password: {
         type: String,
@@ -33,6 +79,13 @@ const userSchema = mongoose.Schema({
     careerGoal: {
         type: String,
     },
+    learningGoal: {
+        type: String,
+    },
+    careerTarget: {
+        type: String,
+        default: '',
+    },
     weeklyLearningHours: {
         type: Number,
     },
@@ -48,9 +101,25 @@ const userSchema = mongoose.Schema({
         type: String,
     },
     learningFormat: {
-        type: String,
+        type: [String],
+        default: [],
     },
-    enrolledCourses: [String],
+    learningPreferences: {
+        type: learningPreferencesSchema,
+        default: () => ({}),
+    },
+    skills: {
+        type: skillsSchema,
+        default: () => ({}),
+    },
+    enrolledCourses: {
+        type: [String],
+        default: [],
+    },
+    completedCourses: {
+        type: [String],
+        default: [],
+    },
 }, {
     timestamps: true,
 });

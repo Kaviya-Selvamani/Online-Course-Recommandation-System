@@ -30,10 +30,30 @@ const courseSchema = mongoose.Schema({
         enum: ['Beginner', 'Intermediate', 'Advanced'],
         required: true,
     },
+    level: {
+        type: String,
+        enum: ['Beginner', 'Intermediate', 'Advanced'],
+    },
     tags: [{
         type: String,
         required: true,
     }],
+    skills: {
+        type: [String],
+        default: [],
+    },
+    outcomes: {
+        type: [String],
+        default: [],
+    },
+    prerequisites: {
+        type: [String],
+        default: [],
+    },
+    syllabus: {
+        type: [String],
+        default: [],
+    },
     price: {
         type: Number,
         required: true,
@@ -41,6 +61,10 @@ const courseSchema = mongoose.Schema({
     isFree: {
         type: Boolean,
         required: true,
+    },
+    certificate: {
+        type: Boolean,
+        default: false,
     },
     thumbnailUrl: {
         type: String,
@@ -50,13 +74,34 @@ const courseSchema = mongoose.Schema({
         type: Number,
         default: 0,
     },
+    ratingCount: {
+        type: Number,
+        default: 0,
+    },
+    reviewHighlights: {
+        type: [String],
+        default: [],
+    },
     duration: {
         type: String,
         default: "Self-paced",
     },
+    durationWeeks: {
+        type: Number,
+    },
+    durationHours: {
+        type: Number,
+    },
     language: {
         type: String,
         default: "English",
+    },
+    subtitles: {
+        type: [String],
+        default: [],
+    },
+    lastUpdated: {
+        type: Date,
     },
     enrollments: {
         type: Number,

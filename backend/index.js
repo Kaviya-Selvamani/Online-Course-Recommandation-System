@@ -8,6 +8,7 @@ import connectDB from './config/db.js';
 import authRoutes from './routes/auth.js';
 import courseRoutes from './routes/courses.js';
 import recommendationRoutes from './routes/recommendations.js';
+import adminRoutes from './routes/admin.js';
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
 
 // Load env vars
@@ -19,8 +20,28 @@ connectDB();
 const app = express();
 
 // Middleware
-// NOTE: Front-end usually runs on 5173 (Vite).
-app.use(cors({ origin: ['http://localhost:5173', 'http://127.0.0.1:5173'], credentials: true }));
+// Allow local dev by default; override in production via CORS_ORIGINS (comma-separated).
+// Supports "*" to allow any origin (useful for quick troubleshooting).
+const defaultOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+const configuredOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+const allowedOrigins = configuredOrigins.length ? configuredOrigins : defaultOrigins;
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes('*')) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(null, false);
+  },
+  credentials: true,
+};
+
+console.log('CORS allowed origins:', allowedOrigins);
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -30,6 +51,7 @@ app.use(cookieParser());
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/recommendations', recommendationRoutes);
+app.use('/api/admin', adminRoutes);
 app.use(notFound);
 app.use(errorHandler);
 

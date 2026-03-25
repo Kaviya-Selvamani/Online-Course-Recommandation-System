@@ -12,6 +12,7 @@ export default function Login() {
   const [pass, setPass] = useState("");
   const [adminId, setAdminId] = useState("");
   const [err, setErr] = useState("");
+  const [needsVerify, setNeedsVerify] = useState(false);
 
   useEffect(() => {
     const session = getSession();
@@ -19,6 +20,12 @@ export default function Login() {
       navigate(session.role === "admin" ? "/admin" : "/dashboard", { replace: true });
     }
   }, [navigate]);
+
+  useEffect(() => {
+    if (location.state?.email) {
+      setEmail(location.state.email);
+    }
+  }, [location.state]);
 
   const submit = async () => {
     if (!email || !pass) {
@@ -31,6 +38,7 @@ export default function Login() {
     }
 
     setErr("");
+    setNeedsVerify(false);
     try {
       await serverLogin({
         email,
@@ -40,6 +48,8 @@ export default function Login() {
       });
       navigate(role === "admin" ? "/admin" : from, { replace: true });
     } catch (error) {
+      const code = error.response?.data?.code;
+      setNeedsVerify(code === "EMAIL_NOT_VERIFIED");
       setErr(error.response?.data?.error || "Invalid credentials or server error.");
     }
   };
@@ -118,8 +128,14 @@ export default function Login() {
         </button>
 
         <div style={{ textAlign: "center", marginTop: 10, fontSize: 12, color: "var(--t3)" }}>
-          <span style={{ cursor: "pointer", color: "var(--ac)" }}>Forgot password?</span>
+          <Link to="/forgot-password" style={{ color: "var(--ac)", fontWeight: 600 }}>Forgot password?</Link>
         </div>
+
+        {needsVerify ? (
+          <div className="auth-link">
+            Verify your email to sign in. <Link to="/verify-email" state={{ email }}>Verify now</Link>
+          </div>
+        ) : null}
 
         <div className="auth-link">
           New to CourseIQ? <Link to="/register" style={{ color: "var(--ac)", fontWeight: 600 }}>Create account</Link>

@@ -15,7 +15,45 @@
             "Algorithms"
         ],
         "courseUrl": "https://cs50.harvard.edu",
-        "description": "An introduction to the intellectual enterprises of computer science and the art of programming."
+        "description": "An introduction to the intellectual enterprises of computer science and the art of programming.",
+        "level": "Beginner",
+        "durationWeeks": 12,
+        "durationHours": 100,
+        "skills": [
+            "C",
+            "Python",
+            "Problem Solving",
+            "Algorithms",
+            "Data Structures"
+        ],
+        "outcomes": [
+            "Write programs in C and Python",
+            "Analyze algorithms and data structures",
+            "Build a final project"
+        ],
+        "prerequisites": [
+            "Basic math"
+        ],
+        "syllabus": [
+            "C basics",
+            "Arrays & memory",
+            "Data structures",
+            "Algorithms",
+            "Web programming",
+            "Python"
+        ],
+        "certificate": true,
+        "subtitles": [
+            "English",
+            "Spanish",
+            "Portuguese"
+        ],
+        "ratingCount": 42000,
+        "reviewHighlights": [
+            "Challenging but rewarding",
+            "Best intro to CS"
+        ],
+        "lastUpdated": "2025-11-15"
     },
     {
         "title": "Machine Learning",
@@ -33,7 +71,44 @@
             "Python"
         ],
         "courseUrl": "https://www.coursera.org/learn/machine-learning",
-        "description": "Learn the foundational concepts of machine learning, from linear regression to neural networks."
+        "description": "Learn the foundational concepts of machine learning, from linear regression to neural networks.",
+        "level": "Intermediate",
+        "durationWeeks": 11,
+        "durationHours": 60,
+        "skills": [
+            "Machine Learning",
+            "Python",
+            "Octave",
+            "Linear Regression",
+            "Neural Networks"
+        ],
+        "outcomes": [
+            "Implement ML algorithms from scratch",
+            "Evaluate model performance"
+        ],
+        "prerequisites": [
+            "Linear algebra",
+            "Basic Python"
+        ],
+        "syllabus": [
+            "Linear regression",
+            "Logistic regression",
+            "Neural networks",
+            "SVM",
+            "Clustering"
+        ],
+        "certificate": true,
+        "subtitles": [
+            "English",
+            "Spanish",
+            "French"
+        ],
+        "ratingCount": 185000,
+        "reviewHighlights": [
+            "Classic ML foundation",
+            "Great explanations"
+        ],
+        "lastUpdated": "2025-10-03"
     },
     {
         "title": "Programming for Everybody (Getting Started with Python)",
@@ -50,7 +125,38 @@
             "Basics"
         ],
         "courseUrl": "https://www.coursera.org/learn/python",
-        "description": "This course aims to teach everyone the basics of programming computers using Python."
+        "description": "This course aims to teach everyone the basics of programming computers using Python.",
+        "level": "Beginner",
+        "durationWeeks": 7,
+        "durationHours": 35,
+        "skills": [
+            "Python",
+            "Programming Basics",
+            "Problem Solving"
+        ],
+        "outcomes": [
+            "Write basic Python programs",
+            "Work with variables and loops"
+        ],
+        "prerequisites": [],
+        "syllabus": [
+            "Python basics",
+            "Control flow",
+            "Functions",
+            "Data structures",
+            "File handling"
+        ],
+        "certificate": true,
+        "subtitles": [
+            "English",
+            "Spanish"
+        ],
+        "ratingCount": 98000,
+        "reviewHighlights": [
+            "Perfect for beginners",
+            "Easy to follow"
+        ],
+        "lastUpdated": "2025-09-20"
     },
     {
         "title": "Introduction to Computational Thinking and Data Science",
@@ -67,7 +173,40 @@
             "Computational Thinking"
         ],
         "courseUrl": "https://www.edx.org/course/introduction-to-computational-thinking-and-data-4",
-        "description": "An introduction to using computation to understand real-world phenomena."
+        "description": "An introduction to using computation to understand real-world phenomena.",
+        "level": "Intermediate",
+        "durationWeeks": 9,
+        "durationHours": 70,
+        "skills": [
+            "Python",
+            "Data Science",
+            "Modeling",
+            "Simulation"
+        ],
+        "outcomes": [
+            "Build simulations",
+            "Analyze data with Python"
+        ],
+        "prerequisites": [
+            "Basic Python"
+        ],
+        "syllabus": [
+            "Python review",
+            "Optimization",
+            "Stochastic thinking",
+            "Simulation",
+            "Data analysis"
+        ],
+        "certificate": false,
+        "subtitles": [
+            "English"
+        ],
+        "ratingCount": 12000,
+        "reviewHighlights": [
+            "Rigorous and practical",
+            "Great for DS foundations"
+        ],
+        "lastUpdated": "2024-12-05"
     },
     {
         "title": "Data Structures and Algorithms",
@@ -84,7 +223,42 @@
             "C++"
         ],
         "courseUrl": "https://nptel.ac.in/courses/106102064/",
-        "description": "In-depth study of foundational and advanced data structures and their analysis."
+        "description": "In-depth study of foundational and advanced data structures and their analysis.",
+        "level": "Advanced",
+        "durationWeeks": 12,
+        "durationHours": 90,
+        "skills": [
+            "Algorithms",
+            "Data Structures",
+            "C++",
+            "Complexity Analysis"
+        ],
+        "outcomes": [
+            "Implement core data structures",
+            "Analyze time complexity"
+        ],
+        "prerequisites": [
+            "C/C++ basics"
+        ],
+        "syllabus": [
+            "Arrays & lists",
+            "Stacks & queues",
+            "Trees",
+            "Graphs",
+            "Sorting",
+            "Searching"
+        ],
+        "certificate": true,
+        "subtitles": [
+            "English",
+            "Hindi"
+        ],
+        "ratingCount": 22000,
+        "reviewHighlights": [
+            "Deep coverage",
+            "Strong DSA practice"
+        ],
+        "lastUpdated": "2025-01-10"
     },
     {
         "title": "Deep Learning Specialization",
@@ -101,7 +275,42 @@
             "TensorFlow"
         ],
         "courseUrl": "https://www.coursera.org/specializations/deep-learning",
-        "description": "Master deep learning, build and train neural network architectures such as Convolutional Neural Networks, Recurrent Neural Networks, LSTMs, Transformers."
+        "description": "Master deep learning, build and train neural network architectures such as Convolutional Neural Networks, Recurrent Neural Networks, LSTMs, Transformers.",
+        "level": "Advanced",
+        "durationWeeks": 16,
+        "durationHours": 120,
+        "skills": [
+            "Deep Learning",
+            "Neural Networks",
+            "TensorFlow",
+            "Optimization"
+        ],
+        "outcomes": [
+            "Build CNNs and RNNs",
+            "Train and tune deep networks"
+        ],
+        "prerequisites": [
+            "Machine learning basics",
+            "Python"
+        ],
+        "syllabus": [
+            "Neural networks",
+            "Improving models",
+            "CNNs",
+            "Sequence models",
+            "Practical tips"
+        ],
+        "certificate": true,
+        "subtitles": [
+            "English",
+            "Spanish"
+        ],
+        "ratingCount": 52000,
+        "reviewHighlights": [
+            "Hands-on deep learning",
+            "Great for practitioners"
+        ],
+        "lastUpdated": "2025-08-01"
     },
     {
         "title": "AWS Certified Solutions Architect - Associate",
@@ -118,7 +327,41 @@
             "Architecture"
         ],
         "courseUrl": "https://www.coursera.org/professional-certificates/aws-cloud-solutions-architect",
-        "description": "Prepare for the AWS Certified Solutions Architect - Associate exam."
+        "description": "Prepare for the AWS Certified Solutions Architect - Associate exam.",
+        "level": "Intermediate",
+        "durationWeeks": 10,
+        "durationHours": 80,
+        "skills": [
+            "AWS",
+            "Cloud Architecture",
+            "Networking",
+            "Security"
+        ],
+        "outcomes": [
+            "Design scalable AWS architectures",
+            "Prepare for the SAA exam"
+        ],
+        "prerequisites": [
+            "Basic cloud concepts"
+        ],
+        "syllabus": [
+            "IAM",
+            "VPC",
+            "Compute",
+            "Storage",
+            "Security",
+            "Well-Architected"
+        ],
+        "certificate": true,
+        "subtitles": [
+            "English"
+        ],
+        "ratingCount": 15000,
+        "reviewHighlights": [
+            "Exam-focused",
+            "Clear labs"
+        ],
+        "lastUpdated": "2025-07-12"
     },
     {
         "title": "Blockchain Basics",
@@ -135,7 +378,36 @@
             "Smart Contracts"
         ],
         "courseUrl": "https://www.coursera.org/learn/blockchain-basics",
-        "description": "Understand the essential concepts of blockchain technology and its fundamental components."
+        "description": "Understand the essential concepts of blockchain technology and its fundamental components.",
+        "level": "Intermediate",
+        "durationWeeks": 4,
+        "durationHours": 20,
+        "skills": [
+            "Blockchain",
+            "Bitcoin",
+            "Smart Contracts"
+        ],
+        "outcomes": [
+            "Explain blockchain components",
+            "Describe smart contract basics"
+        ],
+        "prerequisites": [],
+        "syllabus": [
+            "Cryptography",
+            "Blocks & hashing",
+            "Consensus",
+            "Applications"
+        ],
+        "certificate": true,
+        "subtitles": [
+            "English"
+        ],
+        "ratingCount": 9000,
+        "reviewHighlights": [
+            "Great intro to blockchain",
+            "Concise and clear"
+        ],
+        "lastUpdated": "2025-02-18"
     },
     {
         "title": "Full Stack Web Developer",
@@ -153,7 +425,42 @@
             "JavaScript"
         ],
         "courseUrl": "https://www.udacity.com/course/full-stack-web-developer-nanodegree--nd0044",
-        "description": "Learn to design and develop powerful modern web applications that form the foundation for the apps, websites, and systems that people and businesses use every day."
+        "description": "Learn to design and develop powerful modern web applications that form the foundation for the apps, websites, and systems that people and businesses use every day.",
+        "level": "Advanced",
+        "durationWeeks": 24,
+        "durationHours": 200,
+        "skills": [
+            "JavaScript",
+            "Python",
+            "SQL",
+            "Web Development",
+            "APIs"
+        ],
+        "outcomes": [
+            "Build full stack apps",
+            "Design REST APIs",
+            "Deploy web apps"
+        ],
+        "prerequisites": [
+            "Basic programming"
+        ],
+        "syllabus": [
+            "Frontend fundamentals",
+            "Backend APIs",
+            "Databases",
+            "Auth & security",
+            "Deployment"
+        ],
+        "certificate": true,
+        "subtitles": [
+            "English"
+        ],
+        "ratingCount": 8000,
+        "reviewHighlights": [
+            "Project-heavy",
+            "Industry-ready"
+        ],
+        "lastUpdated": "2025-06-30"
     },
     {
         "title": "Introduction to Philosophy",
@@ -170,6 +477,37 @@
             "Epistemology"
         ],
         "courseUrl": "https://www.coursera.org/learn/philosophy",
-        "description": "An introduction to some of the main areas of research in contemporary philosophy."
+        "description": "An introduction to some of the main areas of research in contemporary philosophy.",
+        "level": "Beginner",
+        "durationWeeks": 6,
+        "durationHours": 30,
+        "skills": [
+            "Critical Thinking",
+            "Ethics",
+            "Argumentation"
+        ],
+        "outcomes": [
+            "Analyze philosophical arguments",
+            "Apply ethical frameworks"
+        ],
+        "prerequisites": [],
+        "syllabus": [
+            "Metaphysics",
+            "Epistemology",
+            "Ethics",
+            "Mind",
+            "Free will"
+        ],
+        "certificate": true,
+        "subtitles": [
+            "English",
+            "Spanish"
+        ],
+        "ratingCount": 30000,
+        "reviewHighlights": [
+            "Thought-provoking",
+            "Well structured"
+        ],
+        "lastUpdated": "2025-03-22"
     }
 ]

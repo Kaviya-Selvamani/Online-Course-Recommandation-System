@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getSession, serverRegister } from "../services/authService.js";
+import { getSession, logout, serverRegister } from "../services/authService.js";
 
 const ALL_INTERESTS = [
   "Machine Learning",
@@ -32,16 +32,8 @@ export default function Register() {
   const [skill, setSkill] = useState("Intermediate");
   const [goal, setGoal] = useState("ML Engineer");
   const [pace, setPace] = useState("Steady");
-  const [platforms, setPlatforms] = useState(["Coursera", "edX"]);
-  const [pref, setPref] = useState("Paid Allowed");
-  const [educationLevel, setEducationLevel] = useState("Bachelor's Degree");
-  const [learningFormat, setLearningFormat] = useState("Video Lectures");
-
   const toggleInterest = (tag) =>
     setInterests((prev) => (prev.includes(tag) ? prev.filter((x) => x !== tag) : [...prev, tag]));
-
-  const togglePlatform = (p) =>
-    setPlatforms((prev) => (prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]));
 
   useEffect(() => {
     const session = getSession();
@@ -68,6 +60,10 @@ export default function Register() {
   };
 
   const finish = async () => {
+    if (getSession()) {
+      logout();
+    }
+
     const validationError = validateAccountFields();
     if (validationError) {
       setErr(validationError);
@@ -77,7 +73,7 @@ export default function Register() {
 
     setErr("");
     try {
-      await serverRegister({
+      const result = await serverRegister({
         name: name.trim(),
         email: email.trim().toLowerCase(),
         password: pass,
@@ -87,11 +83,11 @@ export default function Register() {
         goal,
         pace,
         interests,
-        preferredPlatforms: platforms,
-        learningPreference: pref,
-        educationLevel,
-        learningFormat,
       });
+      if (result?.requiresVerification) {
+        navigate("/verify-email", { state: { email: result.email || email.trim().toLowerCase() } });
+        return;
+      }
       navigate("/dashboard", { replace: true });
     } catch (error) {
       console.error("Registration error:", error);
@@ -109,12 +105,12 @@ export default function Register() {
           </div>
         </div>
 
-        <div className="auth-t">{["Create Account", "Your Interests", "Skill & Career", "Learning Pace", "Preferences", "Learning Details"][step - 1]}</div>
-        <div className="auth-s">Step {step} of 6 · Build your learning profile</div>
+        <div className="auth-t">{["Create Account", "Your Interests", "Skill & Career", "Learning Pace"][step - 1]}</div>
+        <div className="auth-s">Step {step} of 4 · Build your learning profile</div>
         {err ? <div className="err">⚠ {err}</div> : null}
 
         <div className="ob-prog">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
+          {[1, 2, 3, 4].map((i) => (
             <div key={i} className={"ob-dot " + (i <= step ? "done" : "")} />
           ))}
         </div>
@@ -228,60 +224,12 @@ export default function Register() {
           </div>
         ) : null}
 
-        {step === 5 ? (
-          <div>
-            <div className="fg" style={{ marginBottom: 16 }}>
-              <label className="fl" style={{ marginBottom: 10 }}>Preferred Platforms</label>
-              <div className="itags">
-                {["Coursera", "edX", "NPTEL", "Udacity", "Udemy", "LinkedIn Learning"].map((p) => (
-                  <button
-                    type="button"
-                    key={p}
-                    className={"itag " + (platforms.includes(p) ? "on" : "")}
-                    onClick={() => togglePlatform(p)}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="fg">
-              <label className="fl">Learning Preference</label>
-              <select className="fi" value={pref} onChange={(e) => setPref(e.target.value)}>
-                <option value="Paid Allowed">Paid Allowed (Full Access)</option>
-                <option value="Free Only">Free Courses Only</option>
-              </select>
-            </div>
-          </div>
-        ) : null}
-
-        {step === 6 ? (
-          <>
-            <div className="fg" style={{ marginBottom: 16 }}>
-              <label className="fl">Education Level</label>
-              <select className="fi" value={educationLevel} onChange={(e) => setEducationLevel(e.target.value)}>
-                {["High School", "Some College", "Bachelor's Degree", "Master's Degree", "PhD", "Self-Taught"].map((edu) => (
-                  <option key={edu}>{edu}</option>
-                ))}
-              </select>
-            </div>
-            <div className="fg" style={{ marginBottom: 16 }}>
-              <label className="fl">Preferred Learning Format</label>
-              <select className="fi" value={learningFormat} onChange={(e) => setLearningFormat(e.target.value)}>
-                {["Video Lectures", "Interactive Coding", "Reading Materials", "Project-Based", "Mixed Format"].map((fmt) => (
-                  <option key={fmt}>{fmt}</option>
-                ))}
-              </select>
-            </div>
-          </>
-        ) : null}
-
         <button
           type="button"
           className="btn bp"
           style={{ width: "100%", marginTop: 16, padding: "11px 0", fontSize: 14, fontFamily: "var(--fd)", fontWeight: 700 }}
           onClick={() => {
-            if (step < 6) {
+            if (step < 4) {
               if (step === 1) {
                 const validationError = validateAccountFields();
                 if (validationError) {
@@ -296,7 +244,7 @@ export default function Register() {
             finish();
           }}
         >
-          {step < 6 ? "Continue →" : "Launch My Dashboard"}
+          {step < 4 ? "Continue →" : "Launch My Dashboard"}
         </button>
 
         {step > 1 ? (
