@@ -1,6 +1,7 @@
 import User from "../models/User.js";
 import Course from "../models/Course.js";
 import Enrollment from "../models/Enrollment.js";
+import Feedback from "../models/Feedback.js";
 import { getMetrics, getLogs, addLog } from "../utils/metricsStore.js";
 
 const FEEDBACK_KEYWORDS = ["bad", "boring", "slow", "outdated", "confusing", "broken"];
@@ -30,6 +31,11 @@ function matchFeedbackKeywords(course) {
     .toLowerCase();
 
   return FEEDBACK_KEYWORDS.filter((keyword) => haystack.includes(keyword));
+}
+
+function extractFeedbackKeywords(comment = "") {
+  const lower = String(comment || "").toLowerCase();
+  return FEEDBACK_KEYWORDS.filter((keyword) => lower.includes(keyword));
 }
 
 function buildWeightOptimizationSummary({ avgRating, interestMatchRate, skillMatchRate }) {
@@ -72,6 +78,7 @@ export async function getAdminOverview(req, res) {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const todayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
+    const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const [
       totalUsers,
       totalStudents,
@@ -80,6 +87,9 @@ export async function getAdminOverview(req, res) {
       courses,
       students,
       enrollments,
+      feedbackSummary,
+      recentFeedbackSummary,
+      flaggedFeedback,
     ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ role: "student" }),
@@ -91,10 +101,35 @@ export async function getAdminOverview(req, res) {
         .sort({ createdAt: -1 })
         .lean(),
       Enrollment.find().select("course status createdAt user").lean(),
+      Feedback.aggregate([
+        { $group: { _id: "$courseId", avgRating: { $avg: "$rating" }, count: { $sum: 1 } } },
+      ]),
+      Feedback.aggregate([
+        { $match: { createdAt: { $gte: monthAgo } } },
+        { $group: { _id: "$courseId", avgRating: { $avg: "$rating" }, count: { $sum: 1 } } },
+      ]),
+      Feedback.find({ comment: { $regex: new RegExp(FEEDBACK_KEYWORDS.join("|"), "i") } })
+        .select("courseId comment")
+        .lean(),
     ]);
 
     const courseMap = new Map(courses.map((course) => [String(course._id), course]));
     const enrollmentStats = new Map();
+    const feedbackMap = new Map(
+      feedbackSummary.map((entry) => [String(entry._id), { avgRating: entry.avgRating, count: entry.count }])
+    );
+    const recentFeedbackMap = new Map(
+      recentFeedbackSummary.map((entry) => [String(entry._id), { avgRating: entry.avgRating, count: entry.count }])
+    );
+    const flaggedFeedbackMap = new Map();
+    flaggedFeedback.forEach((entry) => {
+      const courseId = String(entry.courseId);
+      const keywords = extractFeedbackKeywords(entry.comment || "");
+      if (!keywords.length) return;
+      const existing = flaggedFeedbackMap.get(courseId) || new Set();
+      keywords.forEach((keyword) => existing.add(keyword));
+      flaggedFeedbackMap.set(courseId, existing);
+    });
     const categoryCounts = {};
     const categoryRecentCounts = {};
 
@@ -126,16 +161,29 @@ export async function getAdminOverview(req, res) {
         completed: 0,
         recent: 0,
       };
+      const feedback = feedbackMap.get(String(course._id));
+      const recentFeedback = recentFeedbackMap.get(String(course._id));
+      const rating = feedback?.avgRating ?? course.rating ?? 0;
       const completionRate = getCourseCompletionRate(stats);
+      const negativeFlags = new Set([
+        ...matchFeedbackKeywords(course),
+        ...(flaggedFeedbackMap.get(String(course._id)) || []),
+      ]);
+      const declining =
+        recentFeedback?.avgRating !== undefined &&
+        feedback?.avgRating !== undefined &&
+        recentFeedback.avgRating < feedback.avgRating - 0.4;
       return {
         id: course._id,
         title: course.title,
         category: course.category,
-        rating: course.rating || 0,
+        rating: round(rating, 2),
         enrollments: stats.total || course.enrollments || 0,
         completionRate: round(completionRate, 2),
         recentEnrollments: stats.recent || 0,
-        feedbackFlags: matchFeedbackKeywords(course),
+        feedbackFlags: Array.from(negativeFlags),
+        decliningRating: Boolean(declining),
+        ratingCount: feedback?.count || course.ratingCount || 0,
       };
     });
 
@@ -184,6 +232,7 @@ export async function getAdminOverview(req, res) {
     );
 
     const feedbackLowRated = courseStats.filter((course) => course.rating && course.rating < 3);
+    const feedbackDeclining = courseStats.filter((course) => course.decliningRating);
     const feedbackFlagged = courseStats.filter((course) => course.feedbackFlags.length);
 
     const activeUsersToday = students.filter(
@@ -306,6 +355,7 @@ export async function getAdminOverview(req, res) {
       feedbackAnalysis: {
         averageRating: round(avgRating, 2),
         lowRatedCourses: feedbackLowRated,
+        decliningCourses: feedbackDeclining,
         keywordFlags: feedbackFlagged,
       },
       courseRankings: {

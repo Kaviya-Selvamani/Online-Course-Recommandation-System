@@ -1,6 +1,7 @@
 import Course from "../models/Course.js";
 import User from "../models/User.js";
 import Enrollment from "../models/Enrollment.js";
+import Recommendation from "../models/Recommendation.js";
 
 const DIFFICULTY_ORDER = ["Beginner", "Intermediate", "Advanced"];
 const DEFAULT_WEIGHTS = {
@@ -439,6 +440,30 @@ export async function getRecommendations(req, res) {
     .map((course) => computeRecommendation(course, user, maxEnrollments, weights))
     .sort((a, b) => b.relevanceScore - a.relevanceScore)
     .slice(0, 20);
+
+  try {
+    const items = recommendations.map((course, index) => ({
+      courseId: course._id,
+      score: course.relevanceScore,
+      rank: index + 1,
+      reasons: course.whyRecommended || [],
+    }));
+    await Recommendation.findOneAndUpdate(
+      { userId: user._id },
+      {
+        $set: {
+          generatedAt: new Date(),
+          algorithmVersion: "adaptive-v1",
+          weights,
+          items,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      },
+      { upsert: true }
+    );
+  } catch (error) {
+    console.warn("Failed to store recommendations:", error?.message || error);
+  }
 
   return res.json({
     total: recommendations.length,

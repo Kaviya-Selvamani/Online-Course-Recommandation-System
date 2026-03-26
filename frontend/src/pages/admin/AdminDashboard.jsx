@@ -313,6 +313,20 @@ export default function AdminDashboard() {
                 ) : (
                   <div className="activity-empty">No low-rated courses.</div>
                 )}
+                <div className="admin-subtitle" style={{ marginTop: 12 }}>Declining Ratings</div>
+                {(feedback.decliningCourses || []).length ? (
+                  feedback.decliningCourses.map((course) => (
+                    <div className="activity-item" key={course.id}>
+                      <span className="status-dot warn" />
+                      <div className="activity-body">
+                        <div className="activity-label">{course.title}</div>
+                        <div className="activity-detail">Current rating {course.rating}</div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="activity-empty">No declining ratings detected.</div>
+                )}
                 <div className="admin-subtitle" style={{ marginTop: 12 }}>Keyword Flags</div>
                 {(feedback.keywordFlags || []).length ? (
                   feedback.keywordFlags.map((course) => (
