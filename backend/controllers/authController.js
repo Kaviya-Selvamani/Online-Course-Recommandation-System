@@ -50,6 +50,10 @@ const DEFAULT_SKILLS = {
   algorithms: 0,
   dataScience: 0,
 };
+const DEFAULT_NOTIFICATION_SETTINGS = {
+  emailNotifications: true,
+  recommendationAlerts: true,
+};
 const APP_NAME = process.env.APP_NAME || "CourseIQ";
 
 function generateToken(id, role) {
@@ -149,6 +153,10 @@ function buildUserPayload(user, includeToken = false) {
     ...(user?.skills || {}),
   });
   const careerTarget = normalizeCareerTarget(user?.careerTarget || user?.careerGoal, "");
+  const notificationSettings = {
+    ...DEFAULT_NOTIFICATION_SETTINGS,
+    ...(user?.notificationSettings || {}),
+  };
 
   return {
     _id: user._id,
@@ -159,6 +167,8 @@ function buildUserPayload(user, includeToken = false) {
     bio: user.bio || "",
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
+    notificationSettings,
+    recommendationRefreshedAt: user.recommendationRefreshedAt,
     skillLevel: normalizeDifficulty(user.skillLevel, preferredDifficultyLevel),
     interests: user.interests,
     careerGoal: user.careerGoal || careerTarget,
@@ -199,6 +209,19 @@ function normalizeName(name) {
 
 function isValidRole(role) {
   return role === "student" || role === "admin";
+}
+
+function normalizeNotificationSettings(input = {}) {
+  return {
+    emailNotifications:
+      typeof input.emailNotifications === "boolean"
+        ? input.emailNotifications
+        : DEFAULT_NOTIFICATION_SETTINGS.emailNotifications,
+    recommendationAlerts:
+      typeof input.recommendationAlerts === "boolean"
+        ? input.recommendationAlerts
+        : DEFAULT_NOTIFICATION_SETTINGS.recommendationAlerts,
+  };
 }
 
 // Email verification and password reset flows removed.
@@ -595,6 +618,147 @@ export async function updateProfile(req, res) {
   } catch (error) {
     console.error("Update profile error:", error);
     return res.status(500).json({ error: "Unable to update profile right now." });
+  }
+}
+
+export async function updateEmail(req, res) {
+  try {
+    const { email } = req.body || {};
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail || !EMAIL_REGEX.test(normalizedEmail)) {
+      return res.status(400).json({ error: "Valid email is required." });
+    }
+
+    const existing = await User.findOne({ email: normalizedEmail });
+    if (existing && String(existing._id) !== String(req.user.id)) {
+      return res.status(409).json({ error: "Email is already in use." });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    user.email = normalizedEmail;
+    const updatedUser = await user.save();
+    return res.json(buildUserPayload(updatedUser));
+  } catch (error) {
+    console.error("Update email error:", error);
+    return res.status(500).json({ error: "Unable to update email right now." });
+  }
+}
+
+export async function updatePassword(req, res) {
+  try {
+    const { currentPassword, newPassword } = req.body || {};
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: "Current and new passwords are required." });
+    }
+
+    if (String(newPassword).length < 6) {
+      return res.status(400).json({ error: "New password must be at least 6 characters." });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const isMatch = await user.matchPassword(currentPassword);
+    if (!isMatch) {
+      return res.status(401).json({ error: "Current password is incorrect." });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("Update password error:", error);
+    return res.status(500).json({ error: "Unable to update password right now." });
+  }
+}
+
+export async function updateNotificationSettings(req, res) {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const nextSettings = normalizeNotificationSettings(req.body || {});
+    user.notificationSettings = {
+      ...DEFAULT_NOTIFICATION_SETTINGS,
+      ...(user.notificationSettings || {}),
+      ...nextSettings,
+    };
+
+    const updatedUser = await user.save();
+    return res.json(buildUserPayload(updatedUser));
+  } catch (error) {
+    console.error("Update notification settings error:", error);
+    return res.status(500).json({ error: "Unable to update notifications right now." });
+  }
+}
+
+export async function resetRecommendationProfile(req, res) {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    user.interests = [];
+    user.careerTarget = "";
+    user.careerGoal = "";
+    user.weeklyLearningHours = 0;
+    user.skills = { ...DEFAULT_SKILLS };
+    user.learningPreferences = normalizeLearningPreferences({}, {});
+    user.skillLevel = user.learningPreferences.preferredDifficultyLevel;
+    user.preferredPlatforms = user.learningPreferences.preferredPlatforms || [];
+    user.learningFormat = user.learningPreferences.learningFormat || [];
+    user.recommendationRefreshedAt = new Date();
+
+    const updatedUser = await user.save();
+    return res.json(buildUserPayload(updatedUser));
+  } catch (error) {
+    console.error("Reset recommendation profile error:", error);
+    return res.status(500).json({ error: "Unable to reset recommendation profile." });
+  }
+}
+
+export async function recalcRecommendations(req, res) {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    user.recommendationRefreshedAt = new Date();
+    const updatedUser = await user.save();
+    return res.json(buildUserPayload(updatedUser));
+  } catch (error) {
+    console.error("Recalculate recommendations error:", error);
+    return res.status(500).json({ error: "Unable to recalculate recommendations." });
+  }
+}
+
+export async function clearLearningHistory(req, res) {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    user.enrolledCourses = [];
+    user.completedCourses = [];
+    user.recommendationRefreshedAt = new Date();
+
+    const updatedUser = await user.save();
+    return res.json(buildUserPayload(updatedUser));
+  } catch (error) {
+    console.error("Clear learning history error:", error);
+    return res.status(500).json({ error: "Unable to clear learning history right now." });
   }
 }
 

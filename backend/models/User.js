@@ -53,6 +53,13 @@ const userSchema = mongoose.Schema({
         maxlength: 280,
         default: '',
     },
+    notificationSettings: {
+        emailNotifications: { type: Boolean, default: true },
+        recommendationAlerts: { type: Boolean, default: true },
+    },
+    recommendationRefreshedAt: {
+        type: Date,
+    },
     emailVerified: {
         type: Boolean,
         default: true,

@@ -43,7 +43,16 @@ function mapUserPayload(data = {}) {
     _id: data._id,
     name: data.name,
     email: data.email,
+    avatarUrl: data.avatarUrl || "",
+    bio: data.bio || "",
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+    notificationSettings: data.notificationSettings || {
+      emailNotifications: true,
+      recommendationAlerts: true,
+    },
     enrolledCourses: data.enrolledCourses || [],
+    completedCourses: data.completedCourses || [],
     skill: skillLevel,
     skillLevel,
     interests: data.interests || [],
@@ -81,6 +90,20 @@ function hydrateUserSession(data, roleOverride) {
 
   if (token) setToken(token);
   useUiStore.getState().setEnrolledCourses(enrolledCourses || []);
+}
+
+function updateSessionFromPayload(data) {
+  if (!data || !data._id) return;
+  const session = getSession();
+  if (session?.user) {
+    login({
+      role: session.role,
+      user: {
+        ...session.user,
+        ...mapUserPayload(data),
+      },
+    });
+  }
 }
 
 export async function serverLogin(credentials) {
@@ -151,16 +174,67 @@ export async function updateProfile(profileData) {
     headers: getAuthHeaders(),
   });
 
-  const session = getSession();
-  if (session?.user) {
-    login({
-      role: session.role,
-      user: {
-        ...session.user,
-        ...mapUserPayload(data),
-      },
-    });
-  }
+  updateSessionFromPayload(data);
 
+  return data;
+}
+
+export async function updateEmail(email) {
+  if (!getToken()) throw new Error("Not logged in");
+  const { data } = await api.patch(
+    "/auth/email",
+    { email },
+    { headers: getAuthHeaders() }
+  );
+  updateSessionFromPayload(data);
+  return data;
+}
+
+export async function updatePassword({ currentPassword, newPassword }) {
+  if (!getToken()) throw new Error("Not logged in");
+  const { data } = await api.patch(
+    "/auth/password",
+    { currentPassword, newPassword },
+    { headers: getAuthHeaders() }
+  );
+  return data;
+}
+
+export async function updateNotificationSettings(settings) {
+  if (!getToken()) throw new Error("Not logged in");
+  const { data } = await api.patch("/auth/notifications", settings, {
+    headers: getAuthHeaders(),
+  });
+  updateSessionFromPayload(data);
+  return data;
+}
+
+export async function resetRecommendationProfile() {
+  if (!getToken()) throw new Error("Not logged in");
+  const { data } = await api.post("/auth/recommendations/reset", {}, {
+    headers: getAuthHeaders(),
+  });
+  updateSessionFromPayload(data);
+  return data;
+}
+
+export async function recalcRecommendations() {
+  if (!getToken()) throw new Error("Not logged in");
+  const { data } = await api.post(
+    "/auth/recommendations/recalculate",
+    {},
+    { headers: getAuthHeaders() }
+  );
+  updateSessionFromPayload(data);
+  return data;
+}
+
+export async function clearLearningHistory() {
+  if (!getToken()) throw new Error("Not logged in");
+  const { data } = await api.delete("/auth/history", {
+    headers: getAuthHeaders(),
+  });
+  updateSessionFromPayload(data);
+  useUiStore.getState().setEnrolledCourses(data.enrolledCourses || []);
   return data;
 }
