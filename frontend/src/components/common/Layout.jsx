@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { motion as Motion } from "framer-motion";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import CourseIQMatchModal from "../course/CourseIQMatchModal.jsx";
 import { getSession, getTheme, logout, setTheme as persistTheme, refreshEnrolledCourses } from "../../services/authService.js";
@@ -28,22 +29,20 @@ export default function CourseIQLayout({ requireRole }) {
     if (session) {
       refreshEnrolledCourses();
     }
-  }, []);
+  }, [session]);
 
   const { notifs, hasNewRecs } = useUiStore();
   const unreadCount = notifs.filter((n) => n.unread).length;
 
-  const nav = useMemo(() => {
-    if (activeRole === "admin") return ADMIN_NAV;
-    return [
-      { to: "/dashboard", icon: <FiZap />, label: "Dashboard" },
-      { to: "/courses", icon: <FiBook />, label: "Courses" },
-      { to: "/recommendations", icon: <FiTarget />, label: "Recommendations", badge: hasNewRecs ? 8 : null },
-      { to: "/roadmap", icon: <FiMap />, label: "Roadmap" },
-      { to: "/insights", icon: <FiBarChart2 />, label: "Insights" },
-      { to: "/profile", icon: <FiUser />, label: "Profile" },
-    ];
-  }, [activeRole, hasNewRecs, unreadCount]);
+  const nav = activeRole === "admin"
+    ? ADMIN_NAV
+    : [
+        { to: "/dashboard", icon: <FiZap />, label: "Dashboard" },
+        { to: "/courses", icon: <FiBook />, label: "Courses" },
+        { to: "/recommendations", icon: <FiTarget />, label: "Recommendations", badge: hasNewRecs ? 8 : null },
+        { to: "/roadmap", icon: <FiMap />, label: "Roadmap" },
+        { to: "/insights", icon: <FiBarChart2 />, label: "Insights" },
+      ];
   if (!session) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
@@ -85,21 +84,30 @@ export default function CourseIQLayout({ requireRole }) {
               if (!item) return <div className="nav-group" key={`group-${i}`}>Learning</div>;
               const active = location.pathname === item.to || location.pathname.startsWith(item.to + "/");
               return (
-                <div
+                <Motion.div
                   key={item.to}
                   className={"ni " + (active ? "active" : "")}
+                  whileHover={{ x: 4, scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ duration: 0.16, ease: "easeOut" }}
                   onClick={() => navigate(item.to)}
                 >
                   <span className="ni-icon">{item.icon}</span>
                   {item.label}
                   {item.badge ? <span className="ni-badge">{item.badge}</span> : null}
-                </div>
+                </Motion.div>
               );
             })}
           </nav>
 
           <div className="sb-foot">
-            <div className="sb-user">
+            <div
+              className="sb-user"
+              style={{ cursor: activeRole === "student" ? "pointer" : "default" }}
+              onClick={() => {
+                if (activeRole === "student") navigate("/profile");
+              }}
+            >
               <div className="sb-av">{userInitial}</div>
               <div>
                 <div className="sb-uname">{user?.name || "User"}</div>
@@ -133,7 +141,17 @@ export default function CourseIQLayout({ requireRole }) {
                   <FiBell />{unreadCount > 0 && <span className="dot" />}
                 </button>
               ) : null}
-              <div className="av">{userInitial}</div>
+              <button
+                className="av"
+                onClick={() => {
+                  if (activeRole === "student") navigate("/profile");
+                }}
+                title="Profile"
+                type="button"
+                style={{ cursor: activeRole === "student" ? "pointer" : "default" }}
+              >
+                {userInitial}
+              </button>
             </div>
           </header>
 

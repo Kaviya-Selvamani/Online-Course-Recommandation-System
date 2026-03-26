@@ -69,3 +69,61 @@ export async function enrollCourse(courseId, options = {}) {
     throw error;
   }
 }
+
+export async function unenrollCourse(courseId, options = {}) {
+  if (!getToken()) throw new Error("Not logged in");
+  const { showSuccessPopup = true } = options;
+
+  try {
+    const { data } = await api.post(
+      "/auth/unenroll",
+      { courseId },
+      { headers: getAuthHeaders() }
+    );
+
+    if (data.success) {
+      const session = getSession();
+      if (session?.user) {
+        setSession({
+          role: session.role,
+          user: {
+            ...session.user,
+            enrolledCourses: data.enrolledCourses,
+          },
+        });
+      }
+      useUiStore.getState().setEnrolledCourses(data.enrolledCourses || []);
+
+      if (showSuccessPopup) {
+        showPopup("Unenrolled successfully.");
+      }
+    }
+
+    return data;
+  } catch (error) {
+    if (error.response?.data?.error === "Course is not in enrolled list.") {
+      const session = getSession();
+      const current = (session?.user?.enrolledCourses || []).filter(
+        (id) => String(id) !== String(courseId)
+      );
+
+      if (session?.user) {
+        setSession({
+          role: session.role,
+          user: {
+            ...session.user,
+            enrolledCourses: current,
+          },
+        });
+      }
+      useUiStore.getState().setEnrolledCourses(current);
+      return { success: true, enrolledCourses: current };
+    }
+    throw error;
+  }
+}
+
+export async function fetchCoursesCatalog() {
+  const { data } = await api.get("/courses");
+  return data;
+}
