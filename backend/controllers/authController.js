@@ -156,6 +156,9 @@ function buildUserPayload(user, includeToken = false) {
     email: user.email,
     role: user.role,
     avatarUrl: user.avatarUrl || "",
+    bio: user.bio || "",
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
     skillLevel: normalizeDifficulty(user.skillLevel, preferredDifficultyLevel),
     interests: user.interests,
     careerGoal: user.careerGoal || careerTarget,
@@ -442,6 +445,7 @@ export async function updateProfile(req, res) {
       careerTarget,
       learningGoal,
       avatarUrl,
+      bio,
       weeklyLearningHours,
       completedCourses,
       preferredPlatforms,
@@ -497,6 +501,14 @@ export async function updateProfile(req, res) {
 
     if (avatarUrl !== undefined) {
       user.avatarUrl = String(avatarUrl || "").trim();
+    }
+
+    if (bio !== undefined) {
+      const nextBio = String(bio || "").trim();
+      if (nextBio.length > 280) {
+        return res.status(400).json({ error: "Bio must be 280 characters or fewer." });
+      }
+      user.bio = nextBio;
     }
 
     if (completedCourses !== undefined) {

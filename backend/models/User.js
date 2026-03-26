@@ -47,6 +47,12 @@ const userSchema = mongoose.Schema({
     avatarUrl: {
         type: String,
     },
+    bio: {
+        type: String,
+        trim: true,
+        maxlength: 280,
+        default: '',
+    },
     emailVerified: {
         type: Boolean,
         default: true,
