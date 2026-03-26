@@ -1,7 +1,7 @@
 import { motion as Motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchCoursesCatalog } from "../services/courseService.js";
+import { fetchCourseById, fetchCoursesCatalog } from "../services/courseService.js";
 import { useUiStore } from "../store/ui.js";
 
 export default function Roadmap() {
@@ -139,23 +139,40 @@ export default function Roadmap() {
     return bestScore >= 0.34 ? best : null;
   };
 
-  const handleContinue = (phase) => {
-    const course = resolvePhaseCourse(phase);
-    if (course?.courseUrl) {
-      window.open(course.courseUrl, "_blank", "noopener,noreferrer");
+  const resolveCourseUrl = (course) =>
+    course?.courseUrl || course?.url || course?.courseURL || course?.link || "";
+
+  const handleContinue = async (phase) => {
+    let course = resolvePhaseCourse(phase);
+
+    if (!course && phase.courseId) {
+      try {
+        course = await fetchCourseById(phase.courseId);
+      } catch (error) {
+        course = null;
+      }
+    }
+
+    const url = resolveCourseUrl(course);
+    if (url) {
+      window.open(url, "_blank", "noopener,noreferrer");
       return;
     }
-    if (course?._id) {
-      navigate(`/course/${course._id}`);
+
+    const fallbackId = course?._id || phase.courseId;
+    if (fallbackId) {
+      navigate(`/course/${fallbackId}`);
       return;
     }
+
     navigate("/courses");
   };
 
   const handleViewDetails = (phase) => {
     const course = resolvePhaseCourse(phase);
-    if (course?._id) {
-      navigate(`/course/${course._id}`);
+    const courseId = course?._id || phase.courseId;
+    if (courseId) {
+      navigate(`/course/${courseId}`);
       return;
     }
     navigate("/courses");
