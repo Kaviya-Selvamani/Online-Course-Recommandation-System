@@ -9,6 +9,7 @@ import { fetchRecommendations } from "../services/recommendationService.js";
 import { getSession } from "../services/authService.js";
 import { useUiStore } from "../store/ui.js";
 import { getBarColor, getMatch } from "../data/courseiq1.js";
+import FeedbackModal from "../components/course/FeedbackModal.jsx";
 
 function getCourseAccent(course) {
   const category = String(course.category || "").toLowerCase();
@@ -26,6 +27,7 @@ export default function Recommendations() {
   const user = useMemo(() => session?.user || {}, [session]);
   const [filter, setFilter] = useState("all");
   const [courses, setCourses] = useState([]);
+  const [activeFeedbackCourse, setActiveFeedbackCourse] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const enrolledCourses = useUiStore((state) => state.enrolledCourses);
@@ -200,6 +202,14 @@ export default function Recommendations() {
                     className="btn bg"
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.98 }}
+                    onClick={() => setActiveFeedbackCourse(course)}
+                  >
+                    Rate
+                  </Motion.button>
+                  <Motion.button
+                    className="btn bg"
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => openExplain(course)}
                   >
                     Explain
@@ -212,6 +222,23 @@ export default function Recommendations() {
       </div>
 
       {filteredCourses.length === 0 ? <div className="empty-state">No courses match this filter.</div> : null}
+
+      {activeFeedbackCourse ? (
+        <FeedbackModal
+          course={activeFeedbackCourse}
+          onClose={() => setActiveFeedbackCourse(null)}
+          onSubmitted={(data) => {
+            if (!data?.courseRating) return;
+            setCourses((prev) =>
+              prev.map((course) =>
+                course._id === activeFeedbackCourse._id
+                  ? { ...course, rating: data.courseRating, ratingCount: data.ratingCount }
+                  : course
+              )
+            );
+          }}
+        />
+      ) : null}
     </div>
   );
 }

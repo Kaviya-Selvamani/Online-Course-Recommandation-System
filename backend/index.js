@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.js';
 import courseRoutes from './routes/courses.js';
 import recommendationRoutes from './routes/recommendations.js';
 import adminRoutes from './routes/admin.js';
+import feedbackRoutes from './routes/feedback.js';
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
 import { recordRequest } from './utils/metricsStore.js';
 
@@ -79,6 +80,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/feedback', feedbackRoutes);
 app.use(notFound);
 app.use(errorHandler);
 

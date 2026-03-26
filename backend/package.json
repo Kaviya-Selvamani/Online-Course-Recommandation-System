@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "seed:courses": "node scripts/seedCourses.js"
+    "seed:courses": "node scripts/seedCourses.js",
+    "seed:all": "node scripts/seedAll.js",
+    "migrate:atlas": "node scripts/migrateAtlas.js"
   },
   "keywords": [],
   "author": "",
