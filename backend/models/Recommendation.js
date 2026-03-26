@@ -58,7 +58,6 @@ const recommendationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-recommendationSchema.index({ userId: 1 });
 recommendationSchema.index({ generatedAt: -1 });
 recommendationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
