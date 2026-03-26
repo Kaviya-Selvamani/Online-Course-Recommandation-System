@@ -10,8 +10,6 @@ document.documentElement.setAttribute("data-theme", getTheme());
 
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
-import ForgotPassword from "./pages/ForgotPassword.jsx";
-import VerifyEmail from "./pages/VerifyEmail.jsx";
 
 import Dashboard from "./pages/Dashboard.jsx";
 import Recommendations from "./pages/Recommendations.jsx";
@@ -35,8 +33,6 @@ createRoot(document.getElementById("root")).render(
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/verify-email" element={<VerifyEmail />} />
 
         <Route element={<CourseIQLayout requireRole="student" />}>
           <Route path="/dashboard" element={<Dashboard />} />

@@ -73,7 +73,7 @@ export default function Register() {
 
     setErr("");
     try {
-      const result = await serverRegister({
+      await serverRegister({
         name: name.trim(),
         email: email.trim().toLowerCase(),
         password: pass,
@@ -84,10 +84,6 @@ export default function Register() {
         pace,
         interests,
       });
-      if (result?.requiresVerification) {
-        navigate("/verify-email", { state: { email: result.email || email.trim().toLowerCase() } });
-        return;
-      }
       navigate("/dashboard", { replace: true });
     } catch (error) {
       console.error("Registration error:", error);

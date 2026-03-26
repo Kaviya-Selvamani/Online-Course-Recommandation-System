@@ -91,10 +91,6 @@ export async function serverLogin(credentials) {
 
 export async function serverRegister(credentials) {
   const { data } = await api.post("/auth/signup", credentials);
-  if (data?.requiresVerification) {
-    return data;
-  }
-
   hydrateUserSession(
     {
       ...data,
@@ -118,26 +114,6 @@ export async function serverRegister(credentials) {
     },
     credentials.role
   );
-  return data;
-}
-
-export async function serverVerifyEmail({ email, code }) {
-  const { data } = await api.post("/auth/verify-email", { email, code });
-  return data;
-}
-
-export async function resendVerificationEmail(email) {
-  const { data } = await api.post("/auth/resend-verification", { email });
-  return data;
-}
-
-export async function requestPasswordReset(email) {
-  const { data } = await api.post("/auth/forgot-password", { email });
-  return data;
-}
-
-export async function resetPassword({ email, code, password }) {
-  const { data } = await api.post("/auth/reset-password", { email, code, password });
   return data;
 }
 

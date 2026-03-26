@@ -1,6 +1,5 @@
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
-import crypto from "crypto";
 import User from "../models/User.js";
 import Course from "../models/Course.js";
 import Enrollment from "../models/Enrollment.js";
@@ -52,9 +51,6 @@ const DEFAULT_SKILLS = {
   dataScience: 0,
 };
 const APP_NAME = process.env.APP_NAME || "CourseIQ";
-const APP_URL = process.env.APP_URL || "http://localhost:5173";
-const VERIFICATION_CODE_TTL_MIN = Number(process.env.VERIFICATION_CODE_TTL_MIN || 15);
-const RESET_CODE_TTL_MIN = Number(process.env.RESET_CODE_TTL_MIN || 15);
 
 function generateToken(id, role) {
   return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "30d" });
@@ -201,73 +197,7 @@ function isValidRole(role) {
   return role === "student" || role === "admin";
 }
 
-function isEmailConfigError(error) {
-  const message = String(error?.message || "");
-  return (
-    message.includes("Email service not configured") ||
-    message.includes("EMAIL_FROM is not set")
-  );
-}
-
-function createOneTimeCode() {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
-
-function hashCode(code) {
-  return crypto.createHash("sha256").update(code).digest("hex");
-}
-
-function expiresFromNow(minutes) {
-  return new Date(Date.now() + minutes * 60 * 1000);
-}
-
-function isExpired(expiresAt) {
-  if (!expiresAt) return true;
-  return Date.now() > new Date(expiresAt).getTime();
-}
-
-async function sendVerificationEmail(user, code) {
-  const subject = `${APP_NAME} verification code`;
-  const text = `Your ${APP_NAME} verification code is ${code}. It expires in ${VERIFICATION_CODE_TTL_MIN} minutes.`;
-  const html = `
-    <div style="font-family:Arial,sans-serif">
-      <h2>${APP_NAME} email verification</h2>
-      <p>Use the code below to verify your email:</p>
-      <p style="font-size:20px;font-weight:700;letter-spacing:2px">${code}</p>
-      <p>This code expires in ${VERIFICATION_CODE_TTL_MIN} minutes.</p>
-      <p>If you did not request this, you can ignore this email.</p>
-      <p style="margin-top:16px">Open the app: ${APP_URL}</p>
-    </div>
-  `;
-
-  return sendEmail({
-    to: user.email,
-    subject,
-    text,
-    html,
-  });
-}
-
-async function sendPasswordResetEmail(user, code) {
-  const subject = `${APP_NAME} password reset code`;
-  const text = `Your ${APP_NAME} password reset code is ${code}. It expires in ${RESET_CODE_TTL_MIN} minutes.`;
-  const html = `
-    <div style="font-family:Arial,sans-serif">
-      <h2>${APP_NAME} password reset</h2>
-      <p>Use the code below to reset your password:</p>
-      <p style="font-size:20px;font-weight:700;letter-spacing:2px">${code}</p>
-      <p>This code expires in ${RESET_CODE_TTL_MIN} minutes.</p>
-      <p style="margin-top:16px">Open the app: ${APP_URL}</p>
-    </div>
-  `;
-
-  return sendEmail({
-    to: user.email,
-    subject,
-    text,
-    html,
-  });
-}
+// Email verification and password reset flows removed.
 
 async function sendEnrollmentEmail(user, course) {
   if (!user?.email || !course) return null;
@@ -385,31 +315,6 @@ export async function signup(req, res) {
 
     const userExists = await User.findOne({ email: normalizedEmail });
     if (userExists) {
-      if (userExists.emailVerified === false) {
-        const verificationCode = createOneTimeCode();
-        userExists.emailVerificationCodeHash = hashCode(verificationCode);
-        userExists.emailVerificationExpires = expiresFromNow(VERIFICATION_CODE_TTL_MIN);
-        await userExists.save();
-
-        try {
-          await sendVerificationEmail(userExists, verificationCode);
-        } catch (error) {
-          if (isEmailConfigError(error)) {
-            return res.status(503).json({
-              error: "Email service is not configured. Please contact the administrator.",
-              code: "EMAIL_NOT_CONFIGURED",
-            });
-          }
-          throw error;
-        }
-
-        return res.status(200).json({
-          requiresVerification: true,
-          email: userExists.email,
-          message: "Verification code sent.",
-        });
-      }
-
       return res
         .status(409)
         .json({ error: "An account already exists with this email." });
@@ -423,16 +328,12 @@ export async function signup(req, res) {
     const normalizedInterests = normalizeStringArray(interests);
     const normalizedLearningGoal = normalizeName(goal || careerTarget || "");
 
-    const verificationCode = createOneTimeCode();
-
     const user = await User.create({
       name: normalizedName,
       email: normalizedEmail,
       password,
       role,
-      emailVerified: false,
-      emailVerificationCodeHash: hashCode(verificationCode),
-      emailVerificationExpires: expiresFromNow(VERIFICATION_CODE_TTL_MIN),
+      emailVerified: true,
       skillLevel: normalizedDifficulty,
       interests: normalizedInterests,
       careerGoal: normalizedCareerTarget || "",
@@ -450,23 +351,8 @@ export async function signup(req, res) {
       },
       skills: normalizedSkills,
     });
-    try {
-      await sendVerificationEmail(user, verificationCode);
-    } catch (error) {
-      if (isEmailConfigError(error)) {
-        return res.status(503).json({
-          error: "Email service is not configured. Please contact the administrator.",
-          code: "EMAIL_NOT_CONFIGURED",
-        });
-      }
-      throw error;
-    }
 
-    return res.status(201).json({
-      requiresVerification: true,
-      email: user.email,
-      message: "Verification code sent.",
-    });
+    return res.status(201).json(buildUserPayload(user, true));
   } catch (error) {
     console.error("Signup error:", error);
     if (error?.code === 11000) {
@@ -520,13 +406,6 @@ export async function login(req, res) {
       return res.status(401).json({ error: "Invalid email or password." });
     }
 
-    if (user.emailVerified === false) {
-      return res.status(403).json({
-        error: "Please verify your email before logging in.",
-        code: "EMAIL_NOT_VERIFIED",
-      });
-    }
-
     if (user.role !== role) {
       return res.status(403).json({ error: `This account is not registered as ${role}.` });
     }
@@ -535,167 +414,6 @@ export async function login(req, res) {
   } catch (error) {
     console.error("Login error:", error);
     return res.status(500).json({ error: "Unable to log in right now." });
-  }
-}
-
-export async function verifyEmail(req, res) {
-  try {
-    const { email, code } = req.body || {};
-    const normalizedEmail = normalizeEmail(email);
-    const normalizedCode = String(code || "").trim();
-
-    if (!normalizedEmail || !normalizedCode) {
-      return res.status(400).json({ error: "Email and code are required." });
-    }
-    if (!EMAIL_REGEX.test(normalizedEmail)) {
-      return res.status(400).json({ error: "Please enter a valid email address." });
-    }
-
-    const user = await User.findOne({ email: normalizedEmail });
-    if (!user) {
-      return res.status(404).json({ error: "Account not found." });
-    }
-    if (user.emailVerified === true) {
-      return res.json({ success: true, message: "Email already verified." });
-    }
-
-    const hashed = hashCode(normalizedCode);
-    if (user.emailVerificationCodeHash !== hashed || isExpired(user.emailVerificationExpires)) {
-      return res.status(400).json({ error: "Invalid or expired verification code." });
-    }
-
-    user.emailVerified = true;
-    user.emailVerificationCodeHash = undefined;
-    user.emailVerificationExpires = undefined;
-    await user.save();
-
-    return res.json({ success: true, message: "Email verified. Please log in." });
-  } catch (error) {
-    console.error("Verify email error:", error);
-    return res.status(500).json({ error: "Unable to verify email right now." });
-  }
-}
-
-export async function resendVerification(req, res) {
-  try {
-    const { email } = req.body || {};
-    const normalizedEmail = normalizeEmail(email);
-
-    if (!normalizedEmail) {
-      return res.status(400).json({ error: "Email is required." });
-    }
-    if (!EMAIL_REGEX.test(normalizedEmail)) {
-      return res.status(400).json({ error: "Please enter a valid email address." });
-    }
-
-    const user = await User.findOne({ email: normalizedEmail });
-    if (!user) {
-      return res.json({ success: true, message: "If an account exists, a code has been sent." });
-    }
-    if (user.emailVerified === true) {
-      return res.json({ success: true, message: "Email already verified." });
-    }
-
-    const verificationCode = createOneTimeCode();
-    user.emailVerificationCodeHash = hashCode(verificationCode);
-    user.emailVerificationExpires = expiresFromNow(VERIFICATION_CODE_TTL_MIN);
-    await user.save();
-
-    try {
-      await sendVerificationEmail(user, verificationCode);
-    } catch (error) {
-      if (isEmailConfigError(error)) {
-        return res.status(503).json({
-          error: "Email service is not configured. Please contact the administrator.",
-          code: "EMAIL_NOT_CONFIGURED",
-        });
-      }
-      throw error;
-    }
-
-    return res.json({ success: true, message: "Verification code sent." });
-  } catch (error) {
-    console.error("Resend verification error:", error);
-    return res.status(500).json({ error: "Unable to resend verification code." });
-  }
-}
-
-export async function sendPasswordReset(req, res) {
-  try {
-    const { email } = req.body || {};
-    const normalizedEmail = normalizeEmail(email);
-
-    if (!normalizedEmail) {
-      return res.status(400).json({ error: "Email is required." });
-    }
-    if (!EMAIL_REGEX.test(normalizedEmail)) {
-      return res.status(400).json({ error: "Please enter a valid email address." });
-    }
-
-    const user = await User.findOne({ email: normalizedEmail });
-    if (!user) {
-      return res.json({ success: true, message: "If an account exists, a code has been sent." });
-    }
-
-    const resetCode = createOneTimeCode();
-    user.passwordResetCodeHash = hashCode(resetCode);
-    user.passwordResetExpires = expiresFromNow(RESET_CODE_TTL_MIN);
-    await user.save();
-
-    try {
-      await sendPasswordResetEmail(user, resetCode);
-    } catch (error) {
-      if (isEmailConfigError(error)) {
-        return res.status(503).json({
-          error: "Email service is not configured. Please contact the administrator.",
-          code: "EMAIL_NOT_CONFIGURED",
-        });
-      }
-      throw error;
-    }
-
-    return res.json({ success: true, message: "Reset code sent." });
-  } catch (error) {
-    console.error("Password reset request error:", error);
-    return res.status(500).json({ error: "Unable to send reset code." });
-  }
-}
-
-export async function resetPassword(req, res) {
-  try {
-    const { email, code, password } = req.body || {};
-    const normalizedEmail = normalizeEmail(email);
-    const normalizedCode = String(code || "").trim();
-
-    if (!normalizedEmail || !normalizedCode || !password) {
-      return res.status(400).json({ error: "Email, code, and new password are required." });
-    }
-    if (!EMAIL_REGEX.test(normalizedEmail)) {
-      return res.status(400).json({ error: "Please enter a valid email address." });
-    }
-    if (String(password).length < 8) {
-      return res.status(400).json({ error: "Password must be at least 8 characters long." });
-    }
-
-    const user = await User.findOne({ email: normalizedEmail });
-    if (!user) {
-      return res.status(404).json({ error: "Account not found." });
-    }
-
-    const hashed = hashCode(normalizedCode);
-    if (user.passwordResetCodeHash !== hashed || isExpired(user.passwordResetExpires)) {
-      return res.status(400).json({ error: "Invalid or expired reset code." });
-    }
-
-    user.password = password;
-    user.passwordResetCodeHash = undefined;
-    user.passwordResetExpires = undefined;
-    await user.save();
-
-    return res.json({ success: true, message: "Password updated. Please log in." });
-  } catch (error) {
-    console.error("Reset password error:", error);
-    return res.status(500).json({ error: "Unable to reset password right now." });
   }
 }
 
