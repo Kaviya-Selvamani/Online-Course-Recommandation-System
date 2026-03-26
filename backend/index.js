@@ -28,18 +28,32 @@ const configuredOrigins = (process.env.CORS_ORIGINS || '')
   .map((o) => o.trim())
   .filter(Boolean);
 const allowedOrigins = configuredOrigins.length ? configuredOrigins : defaultOrigins;
+const allowedOriginSuffixes = allowedOrigins
+  .filter((origin) => origin.startsWith("*."))
+  .map((origin) => origin.slice(1)); // keep leading dot for endsWith checks
+const allowedOriginExact = allowedOrigins.filter((origin) => !origin.startsWith("*."));
 
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes('*')) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (allowedOrigins.includes("*")) return callback(null, true);
+    if (allowedOriginExact.includes(origin)) return callback(null, true);
+    if (allowedOriginSuffixes.length) {
+      try {
+        const { hostname } = new URL(origin);
+        if (allowedOriginSuffixes.some((suffix) => hostname.endsWith(suffix))) {
+          return callback(null, true);
+        }
+      } catch (error) {
+        return callback(null, false);
+      }
+    }
     return callback(null, false);
   },
   credentials: true,
 };
 
-console.log('CORS allowed origins:', allowedOrigins);
+console.log("CORS allowed origins:", allowedOrigins);
 app.use(cors(corsOptions));
 // Express 5 + path-to-regexp doesn't accept "*" here; cors middleware already handles preflight.
 app.use(morgan('dev'));
