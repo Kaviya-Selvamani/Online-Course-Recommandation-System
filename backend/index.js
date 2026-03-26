@@ -81,6 +81,12 @@ app.use('/api/courses', courseRoutes);
 app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', service: 'online-course-recommendation-backend' });
+});
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'Online Course Recommendation API' });
+});
 app.use(notFound);
 app.use(errorHandler);
 
