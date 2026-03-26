@@ -1,9 +1,11 @@
 export const CAREER_SKILL_MAP = {
+  "Machine Learning Engineer": ["Linear Algebra", "Deep Learning", "PyTorch", "Model Deployment"],
   "ML Engineer": ["Linear Algebra", "Deep Learning", "PyTorch", "Model Deployment"],
   "Data Scientist": ["Statistics", "SQL", "Python", "Visualization"],
   "Frontend Developer": ["React", "TypeScript", "State Management", "Accessibility"],
   "Full Stack Developer": ["Node.js", "React", "Databases", "API Design"],
   "UX Designer": ["Figma", "User Research", "Interaction Design", "Prototyping"],
+  "Cloud Engineer": ["AWS", "Networking", "Terraform", "Cloud Security"],
   "Cloud Architect": ["AWS", "Networking", "Terraform", "Security"],
   "Data Analyst": ["SQL", "Excel", "Pandas", "Dashboarding"],
   "AI Researcher": ["Transformers", "PyTorch", "Deep Learning", "Linear Algebra"],
@@ -50,7 +52,7 @@ export function getPlatformMeta(platform) {
 }
 
 export function getSkillGapData(user, recommendations = []) {
-  const goal = user?.goal || user?.careerGoal || "ML Engineer";
+  const goal = user?.careerTarget || user?.goal || user?.careerGoal || "Machine Learning Engineer";
   const requiredSkills = CAREER_SKILL_MAP[goal] || ["Critical Thinking", "Projects", "Core Concepts"];
   const knownTerms = [
     ...(user?.interests || []),

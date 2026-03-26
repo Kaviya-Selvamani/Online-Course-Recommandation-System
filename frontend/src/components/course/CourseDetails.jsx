@@ -1,9 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useOutletContext, useParams } from "react-router-dom";
-import { COURSES, calcScore, getMatch } from "../../data/courseiq1.js";
-import { enrollCourse, unenrollCourse } from "../../services/courseService.js";
+import { enrollCourse, fetchCourseById, unenrollCourse } from "../../services/courseService.js";
 import FeedbackModal from "./FeedbackModal.jsx";
 import { useUiStore } from "../../store/ui.js";
+
+const CATEGORY_ACCENTS = [
+  { match: ["ai", "ml"], bg: "var(--bg-ml)", emoji: "AI" },
+  { match: ["data", "science"], bg: "var(--bg-py)", emoji: "DS" },
+  { match: ["cloud", "aws"], bg: "var(--bg-aws)", emoji: "CL" },
+  { match: ["web", "frontend"], bg: "var(--bg-web)", emoji: "WEB" },
+  { match: ["design", "ux"], bg: "var(--bg-ux)", emoji: "UX" },
+];
+
+function resolveAccent(category) {
+  const value = String(category || "").toLowerCase();
+  const hit = CATEGORY_ACCENTS.find((item) =>
+    item.match.some((needle) => value.includes(needle))
+  );
+  if (hit) return hit;
+  return { bg: "var(--bg-api)", emoji: "CS" };
+}
 
 export default function CourseDetails() {
   const { id } = useParams();
@@ -11,26 +27,90 @@ export default function CourseDetails() {
   const { openExplain } = useOutletContext();
   const enrolledCourses = useUiStore((s) => s.enrolledCourses) || [];
 
-  const courseId = Number(id);
-  const sel = COURSES.find((c) => c.id === courseId) || null;
-
+  const [course, setCourse] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [bar, setBar] = useState(false);
-  const [enrollmentCount, setEnrollmentCount] = useState(sel?.enrollments || 0);
+  const [enrollmentCount, setEnrollmentCount] = useState(0);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [ratingOverride, setRatingOverride] = useState(sel?.rating || 0);
+  const [ratingOverride, setRatingOverride] = useState(0);
+
   useEffect(() => {
-    if (sel) {
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+
+    fetchCourseById(id)
+      .then((data) => {
+        if (!cancelled) {
+          setCourse(data);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err.response?.data?.error || "Course not found.");
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (course) {
       const t = setTimeout(() => setBar(true), 120);
       return () => clearTimeout(t);
     }
-  }, [sel]);
+    return undefined;
+  }, [course]);
 
   useEffect(() => {
-    setEnrollmentCount(sel?.enrollments || 0);
-    setRatingOverride(sel?.rating || 0);
-  }, [sel]);
+    setEnrollmentCount(course?.enrollments || 0);
+    setRatingOverride(course?.rating || 0);
+  }, [course]);
 
-  if (!sel) {
+  const accent = resolveAccent(course?.category);
+  const providerName = course?.provider || course?.platform || "Course Provider";
+  const prerequisites = course?.prerequisites || [];
+  const canExplain = Boolean(course?.scoreBreakdown?.length || course?.scores);
+
+  const breakdownItems = useMemo(() => {
+    if (!course?.scoreBreakdown?.length) return [];
+    return course.scoreBreakdown.map((item) => ({
+      label: item.label || item.key || "Signal",
+      value: Math.round(Number(item.value || 0)),
+      weight: typeof item.weight === "number" ? `${Math.round(item.weight * 100)}%` : "—",
+    }));
+  }, [course]);
+
+  const matchScore = Math.round(course?.relevanceScore || course?.matchPercentage || 0);
+
+  if (loading) {
+    return (
+      <div className="page anim">
+        <div className="empty-state">Loading course details...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="page anim">
+        <button className="btn bg bsm" style={{ marginBottom: 16 }} onClick={() => navigate("/courses")}>
+          ← Back to Courses
+        </button>
+        <div className="card" style={{ padding: 20 }}>
+          <div style={{ fontFamily: "var(--fd)", fontSize: 18, fontWeight: 800, marginBottom: 6 }}>Course not found</div>
+          <div style={{ color: "var(--t2)" }}>{error}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!course) {
     return (
       <div className="page anim">
         <button className="btn bg bsm" style={{ marginBottom: 16 }} onClick={() => navigate("/courses")}>
@@ -44,17 +124,7 @@ export default function CourseDetails() {
     );
   }
 
-  const pct = calcScore(sel.scores);
-  const meta = getMatch(pct);
-  const isEnrolled = enrolledCourses.some(id => String(id) === String(sel.id));
-
-  const items = [
-    { l: "Interest Fit", v: sel.scores.interest, w: "40%" },
-    { l: "Skill Fit", v: sel.scores.skill, w: "25%" },
-    { l: "Rating Weight", v: sel.scores.rating, w: "15%" },
-    { l: "Popularity", v: sel.scores.popularity, w: "10%" },
-    { l: "Career Alignment", v: sel.scores.career, w: "10%" },
-  ];
+  const isEnrolled = enrolledCourses.some((enrolledId) => String(enrolledId) === String(course._id));
 
   return (
     <div className="page anim">
@@ -63,20 +133,20 @@ export default function CourseDetails() {
       </button>
 
       <div className="cd-header">
-        <div className="cd-thumb" style={{ background: sel.bg }}>
-          {sel.emoji}
+        <div className="cd-thumb" style={{ background: accent.bg }}>
+          {accent.emoji}
         </div>
         <div style={{ flex: 1 }}>
-          <div className="cd-title">{sel.title}</div>
+          <div className="cd-title">{course.title}</div>
           <div className="cd-meta-row">
-            <span className={"bdg bdg-" + sel.difficulty.charAt(0).toLowerCase()}>{sel.difficulty}</span>
-            <span style={{ fontSize: 13, color: "var(--t2)" }}>⭐ {Number(ratingOverride || sel.rating || 0).toFixed(1)}</span>
-            <span className="tg">{sel.category}</span>
+            <span className={"bdg bdg-" + String(course.difficulty || "beginner").charAt(0).toLowerCase()}>{course.difficulty}</span>
+            <span style={{ fontSize: 13, color: "var(--t2)" }}>⭐ {Number(ratingOverride || course.rating || 0).toFixed(1)}</span>
+            <span className="tg">{course.category}</span>
             <span style={{ fontSize: 12, color: "var(--t3)" }}>
-              {enrollmentCount.toLocaleString()} enrolled · {sel.seats} seats left
+              {enrollmentCount.toLocaleString()} learners · {course.duration || "Self-paced"}
             </span>
           </div>
-          <div style={{ fontSize: 13, color: "var(--t2)", lineHeight: 1.6, marginBottom: 14 }}>{sel.desc}</div>
+          <div style={{ fontSize: 13, color: "var(--t2)", lineHeight: 1.6, marginBottom: 14 }}>{course.description}</div>
           <div style={{ display: "flex", gap: 8 }}>
             <button
               className="btn bp"
@@ -88,11 +158,11 @@ export default function CourseDetails() {
               onClick={async () => {
                 try {
                   if (isEnrolled) {
-                    await unenrollCourse(sel.id);
+                    await unenrollCourse(course._id);
                     setEnrollmentCount((prev) => Math.max(0, prev - 1));
                     return;
                   }
-                  await enrollCourse(sel.id);
+                  await enrollCourse(course._id);
                   setEnrollmentCount((prev) => prev + 1);
                 } catch (err) {
                   alert(err.response?.data?.error || err.message || "Failed to update enrollment.");
@@ -104,7 +174,7 @@ export default function CourseDetails() {
             <button
               className="btn bg"
               onClick={() => {
-                if (!sel?._id) {
+                if (!course?._id) {
                   alert("Feedback is available only for live catalog courses.");
                   return;
                 }
@@ -113,7 +183,17 @@ export default function CourseDetails() {
             >
               Rate Course
             </button>
-            <button className="btn bg" onClick={() => openExplain(sel)}>
+            <button
+              className="btn bg"
+              onClick={() => {
+                if (!canExplain) {
+                  alert("Personalized match insights appear in your Recommendations.");
+                  return;
+                }
+                openExplain(course);
+              }}
+              disabled={!canExplain}
+            >
               Explain Match
             </button>
           </div>
@@ -125,11 +205,11 @@ export default function CourseDetails() {
           <div className="cd-section">
             <div className="cd-stitle">About This Course</div>
             <p style={{ fontSize: 13.5, color: "var(--t2)", lineHeight: 1.7 }}>
-              {sel.desc} This course includes hands-on projects and a final capstone.
+              {course.description} This course includes hands-on projects and a final capstone.
             </p>
           </div>
           <div className="cd-section">
-            <div className="cd-stitle">Instructor</div>
+            <div className="cd-stitle">Provider & Platform</div>
             <div style={{ display: "flex", alignItems: "center", gap: 13 }}>
               <div
                 style={{
@@ -146,20 +226,20 @@ export default function CourseDetails() {
                   fontFamily: "var(--fd)",
                 }}
               >
-                {sel.instructor[0]}
+                {providerName[0] || "C"}
               </div>
               <div>
-                <div style={{ fontWeight: 600, fontSize: 14, color: "var(--t)" }}>{sel.instructor}</div>
-                <div style={{ fontSize: 12, color: "var(--t2)" }}>⭐ 4.9 · 12k students</div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: "var(--t)" }}>{providerName}</div>
+                <div style={{ fontSize: 12, color: "var(--t2)" }}>{course.platform || "Online platform"}</div>
               </div>
             </div>
           </div>
           <div className="cd-section">
             <div className="cd-stitle">Prerequisites & Info</div>
-            {sel.prereqs.length === 0 ? (
+            {prerequisites.length === 0 ? (
               <div style={{ fontSize: 13, color: "var(--t3)" }}>No prerequisites required.</div>
             ) : (
-              sel.prereqs.map((p) => (
+              prerequisites.map((p) => (
                 <div
                   key={p}
                   style={{
@@ -178,8 +258,8 @@ export default function CourseDetails() {
               ))
             )}
             <div style={{ marginTop: 12, fontSize: 13, color: "var(--t3)" }}>
-              Credits: <strong style={{ color: "var(--ac)" }}>{sel.credits}</strong> · Seats:{" "}
-              <strong style={{ color: "var(--t)" }}>{sel.seats}</strong>
+              Duration: <strong style={{ color: "var(--ac)" }}>{course.duration || "Self-paced"}</strong> · Language:{" "}
+              <strong style={{ color: "var(--t)" }}>{course.language || "English"}</strong>
             </div>
           </div>
         </div>
@@ -189,35 +269,40 @@ export default function CourseDetails() {
             <div style={{ fontFamily: "var(--fd)", fontSize: 13.5, fontWeight: 700, color: "var(--t)", marginBottom: 14 }}>
               Relevance Intelligence
             </div>
-            <div className="ri-score">
-              <div className="ri-val">{pct}%</div>
-              <div style={{ marginTop: 6 }}>
-                <span className={"mpill " + meta.cls}>{meta.label}</span>
-              </div>
-            </div>
+            {course?.scoreBreakdown?.length ? (
+              <>
+                <div className="ri-score">
+                  <div className="ri-val">{matchScore}%</div>
+                  <div style={{ marginTop: 6 }}>
+                    <span className="mpill good">Personalized</span>
+                  </div>
+                </div>
 
-            {items.map((it) => (
-              <div key={it.l} style={{ marginBottom: 12 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 4 }}>
-                  <span style={{ color: "var(--t2)" }}>{it.l}</span>
-                  <span style={{ fontWeight: 700, color: "var(--ac)" }}>{it.v}%</span>
-                </div>
-                <div className="bd-track">
-                  <div className="bd-fill" style={{ width: bar ? it.v + "%" : "0%" }} />
-                </div>
-                <div style={{ fontSize: 10.5, color: "var(--t3)", marginTop: 2 }}>Weight: {it.w}</div>
+                {breakdownItems.map((it) => (
+                  <div key={it.label} style={{ marginBottom: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 4 }}>
+                      <span style={{ color: "var(--t2)" }}>{it.label}</span>
+                      <span style={{ fontWeight: 700, color: "var(--ac)" }}>{it.value}%</span>
+                    </div>
+                    <div className="bd-track">
+                      <div className="bd-fill" style={{ width: bar ? it.value + "%" : "0%" }} />
+                    </div>
+                    <div style={{ fontSize: 10.5, color: "var(--t3)", marginTop: 2 }}>Weight: {it.weight}</div>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <div style={{ fontSize: 13, color: "var(--t2)", lineHeight: 1.6 }}>
+                Personalized match signals will appear after this course is ranked in your Recommendations.
               </div>
-            ))}
-            <div className="modal-tip" style={{ marginTop: 14 }}>
-              💡 Complete "Python Basics" to improve your match.
-            </div>
+            )}
           </div>
         </div>
       </div>
 
       {feedbackOpen ? (
         <FeedbackModal
-          course={sel}
+          course={course}
           onClose={() => setFeedbackOpen(false)}
           onSubmitted={(data) => {
             if (data?.courseRating) {

@@ -8,97 +8,113 @@ import {
 } from "../utils/relevanceScoring.js";
 
 export async function getCourses(req, res) {
-  const keyword = req.query.keyword
-    ? {
-        title: {
-          $regex: req.query.keyword,
-          $options: "i",
-        },
-      }
-    : {};
+  try {
+    const keyword = req.query.keyword
+      ? {
+          title: {
+            $regex: req.query.keyword,
+            $options: "i",
+          },
+        }
+      : {};
 
-  const filter = { ...keyword };
+    const filter = { ...keyword };
 
-  if (req.query.level && req.query.level !== "All") {
-    filter.$or = [{ level: req.query.level }, { difficulty: req.query.level }];
+    if (req.query.level && req.query.level !== "All") {
+      filter.$or = [{ level: req.query.level }, { difficulty: req.query.level }];
+    }
+
+    if (req.query.topics) {
+      const topics = req.query.topics.split(",");
+      filter.$and = [...(filter.$and || []), { $or: [{ topics: { $in: topics } }, { tags: { $in: topics } }] }];
+    }
+
+    const courses = await Course.find(filter);
+    return res.json(courses);
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to fetch courses" });
   }
-
-  if (req.query.topics) {
-    const topics = req.query.topics.split(",");
-    filter.$and = [...(filter.$and || []), { $or: [{ topics: { $in: topics } }, { tags: { $in: topics } }] }];
-  }
-
-  const courses = await Course.find(filter);
-  return res.json(courses);
 }
 
 export async function getCourseById(req, res) {
-  const { id } = req.params;
-  if (!id) {
-    return res.status(400).json({ error: "Course ID is required." });
-  }
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ error: "Course ID is required." });
+    }
 
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ error: "Invalid course ID." });
-  }
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid course ID." });
+    }
 
-  const course = await Course.findById(id);
-  if (!course) {
-    return res.status(404).json({ error: "Course not found." });
-  }
+    const course = await Course.findById(id);
+    if (!course) {
+      return res.status(404).json({ error: "Course not found." });
+    }
 
-  return res.json(course);
+    return res.json(course);
+  } catch (error) {
+    return res.status(500).json({ error: "Server error fetching course" });
+  }
 }
 
 export async function createCourse(req, res) {
-  const {
-    title,
-    description,
-    provider,
-    platform,
-    url,
-    courseUrl,
-    level,
-    difficulty,
-    topics,
-    tags,
-    category,
-    price,
-    isFree,
-    thumbnailUrl,
-  } = req.body;
+  try {
+    const {
+      title,
+      description,
+      provider,
+      platform,
+      url,
+      courseUrl,
+      level,
+      difficulty,
+      topics,
+      tags,
+      category,
+      price,
+      isFree,
+      thumbnailUrl,
+    } = req.body;
 
-  const course = new Course({
-    title,
-    description,
-    provider,
-    platform: platform || provider,
-    courseUrl: courseUrl || url,
-    difficulty: difficulty || level,
-    tags: tags || topics || [],
-    category: category || "General",
-    price: typeof price === "number" ? price : 0,
-    isFree: typeof isFree === "boolean" ? isFree : true,
-    thumbnailUrl: thumbnailUrl || undefined,
-  });
+    const course = new Course({
+      title,
+      description,
+      provider,
+      platform: platform || provider,
+      courseUrl: courseUrl || url,
+      difficulty: difficulty || level,
+      tags: tags || topics || [],
+      category: category || "General",
+      price: typeof price === "number" ? price : 0,
+      isFree: typeof isFree === "boolean" ? isFree : true,
+      thumbnailUrl: thumbnailUrl || undefined,
+    });
 
-  const createdCourse = await course.save();
-  return res.status(201).json(createdCourse);
+    const createdCourse = await course.save();
+    return res.status(201).json(createdCourse);
+  } catch (error) {
+    return res.status(400).json({ error: "Failed to create course" });
+  }
 }
 
 export async function getBasicRecommendations(req, res) {
-  const { interests, skill } = req.body || {};
-  const filter = {};
+  try {
+    const { interests, skill } = req.body || {};
+    const filter = {};
 
-  if (skill) {
-    filter.$or = [{ level: skill }, { difficulty: skill }];
-  }
-  if (interests?.length) {
-    filter.$and = [...(filter.$and || []), { $or: [{ topics: { $in: interests } }, { tags: { $in: interests } }] }];
-  }
+    if (skill) {
+      filter.$or = [{ level: skill }, { difficulty: skill }];
+    }
+    if (interests?.length) {
+      filter.$and = [...(filter.$and || []), { $or: [{ topics: { $in: interests } }, { tags: { $in: interests } }] }];
+    }
 
-  const courses = await Course.find(filter).limit(10);
-  return res.json(courses);
+    const courses = await Course.find(filter).limit(10);
+    return res.json(courses);
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to fetch basic recommendations" });
+  }
 }
 
 export async function enrollInCourse(req, res) {
@@ -155,7 +171,7 @@ export async function getRecommendationsForUser(req, res) {
     const courses = await Course.aggregate([
       {
         $lookup: {
-          from: "reviews",
+          from: "feedbacks",
           let: { courseId: "$_id" },
           pipeline: [
             { $match: { $expr: { $eq: ["$course", "$$courseId"] } } },

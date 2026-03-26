@@ -127,3 +127,8 @@ export async function fetchCoursesCatalog() {
   const { data } = await api.get("/courses");
   return data;
 }
+
+export async function fetchCourseById(courseId) {
+  const { data } = await api.get(`/courses/${courseId}`);
+  return data;
+}
