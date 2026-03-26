@@ -1,5 +1,5 @@
 import { useUiStore } from '../store/ui.js'
-import { enrollCourse } from '../../services/courseService.js'
+import { enrollCourse, unenrollCourse } from '../../services/courseService.js'
 import '../index.css'
 
 export default function CourseModal() {
@@ -51,21 +51,24 @@ export default function CourseModal() {
             ) : null}
             <button
               className="btn btn-primary"
-              disabled={isEnrolled}
               style={
                 isEnrolled
-                  ? { background: "var(--ac2)", color: "#fff", border: "1px solid var(--ac)", flex: 1 }
+                  ? { background: "#c0392b", color: "#fff", border: "1px solid #a93226", flex: 1 }
                   : { opacity: 1, flex: 1 }
               }
               onClick={async () => {
                 try {
+                  if (isEnrolled) {
+                    await unenrollCourse(currentCourseId)
+                    return
+                  }
                   await enrollCourse(currentCourseId)
                 } catch (err) {
-                  alert(err.response?.data?.error || err.message || "Failed to enroll.")
+                  alert(err.response?.data?.error || err.message || "Failed to update enrollment.")
                 }
               }}
             >
-              {isEnrolled ? "Enrolled" : "Enroll"}
+              {isEnrolled ? "Unenroll" : "Enroll"}
             </button>
           </div>
         </div>

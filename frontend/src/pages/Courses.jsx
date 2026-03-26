@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import PlatformBadge from "../components/common/PlatformBadge.jsx";
 import { COURSES, calcScore, getBarColor, getMatch } from "../data/courseiq1.js";
-import { enrollCourse } from "../services/courseService.js";
+import { enrollCourse, unenrollCourse } from "../services/courseService.js";
 import { useUiStore } from "../store/ui.js";
 
 export default function Courses() {
@@ -16,6 +16,7 @@ export default function Courses() {
   const [catF, setCatF] = useState("all");
   const [priceF, setPriceF] = useState("all");
   const [platF, setPlatF] = useState("all");
+  const [view, setView] = useState("all");
   const enrolledCourses = useUiStore((state) => state.enrolledCourses);
 
   useEffect(() => {
@@ -27,6 +28,7 @@ export default function Courses() {
 
   const categories = useMemo(() => ["all", ...new Set(COURSES.map((course) => course.category))], []);
   const platforms = useMemo(() => ["all", ...new Set(COURSES.map((course) => course.platform))], []);
+  const knownIdSet = useMemo(() => new Set(COURSES.map((course) => String(course.id))), []);
 
   const filteredCourses = useMemo(
     () =>
@@ -46,11 +48,39 @@ export default function Courses() {
     [search, diffF, catF, priceF, platF]
   );
 
+  const enrolledIdSet = useMemo(
+    () => new Set((enrolledCourses || []).map((id) => String(id))),
+    [enrolledCourses]
+  );
+
+  const hasUnknownEnrolled = useMemo(
+    () => (enrolledCourses || []).some((id) => !knownIdSet.has(String(id))),
+    [enrolledCourses, knownIdSet]
+  );
+
+  const visibleCourses = useMemo(() => {
+    if (view !== "enrolled") return filteredCourses;
+    return filteredCourses.filter((course) =>
+      enrolledIdSet.has(String(course.id))
+    );
+  }, [filteredCourses, view, enrolledIdSet]);
+
   return (
     <div className="page anim">
       <div className="ph">
         <div className="pt">Courses</div>
         <div className="ps">A production-style catalog with platform, duration, pricing, and transparent fit indicators.</div>
+      </div>
+
+      <div className="ftabs" style={{ marginBottom: 12 }}>
+        {[
+          ["all", "All Courses"],
+          ["enrolled", `My Courses (${enrolledCourses.length})`],
+        ].map(([value, label]) => (
+          <button key={value} className={`ft ${view === value ? "on" : ""}`} onClick={() => setView(value)}>
+            {label}
+          </button>
+        ))}
       </div>
 
       <div className="catalog-toolbar">
@@ -89,10 +119,12 @@ export default function Courses() {
         </select>
       </div>
 
-      <div className="catalog-count">{filteredCourses.length} courses available</div>
+      <div className="catalog-count">
+        {view === "enrolled" ? `${visibleCourses.length} enrolled courses` : `${visibleCourses.length} courses available`}
+      </div>
 
       <div className="g3">
-        {filteredCourses.map((course) => {
+        {visibleCourses.map((course) => {
           const score = calcScore(course.scores);
           const meta = getMatch(score);
           const isEnrolled = enrolledCourses.some((id) => String(id) === String(course.id));
@@ -148,17 +180,24 @@ export default function Courses() {
                   </a>
                   <button
                     className="btn"
-                    style={isEnrolled ? { background: "var(--ac2)", color: "#fff", border: "1px solid var(--ac)" } : { background: "var(--ac)", color: "#fff", border: "1px solid var(--ac)" }}
-                    disabled={isEnrolled}
+                    style={
+                      isEnrolled
+                        ? { background: "#c0392b", color: "#fff", border: "1px solid #a93226" }
+                        : { background: "var(--ac)", color: "#fff", border: "1px solid var(--ac)" }
+                    }
                     onClick={async () => {
                       try {
+                        if (isEnrolled) {
+                          await unenrollCourse(course.id);
+                          return;
+                        }
                         await enrollCourse(course.id);
                       } catch (err) {
-                        alert(err.response?.data?.error || err.message || "Failed to enroll.");
+                        alert(err.response?.data?.error || err.message || "Failed to update enrollment.");
                       }
                     }}
                   >
-                    {isEnrolled ? "Enrolled" : "Enroll"}
+                    {isEnrolled ? "Unenroll" : "Enroll"}
                   </button>
                   <button className="btn bg" onClick={() => openExplain(course)}>Explain</button>
                 </div>
@@ -168,7 +207,17 @@ export default function Courses() {
         })}
       </div>
 
-      {filteredCourses.length === 0 ? <div className="empty-state">No courses match your filters.</div> : null}
+      {visibleCourses.length === 0 ? (
+        <div className="empty-state">
+          {view === "enrolled"
+            ? enrolledCourses.length === 0
+              ? "No enrolled courses yet. Enroll from Recommendations to build your list."
+              : hasUnknownEnrolled
+                ? "Your enrolled courses were added from recommendations and appear in the Roadmap."
+                : "No enrolled courses match your filters."
+            : "No courses match your filters."}
+        </div>
+      ) : null}
     </div>
   );
 }

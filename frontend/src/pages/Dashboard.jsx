@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { motion as Motion } from "framer-motion";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import PlatformBadge from "../components/common/PlatformBadge.jsx";
 import SkillGapAlert from "../components/common/SkillGapAlert.jsx";
 import { BarChart, GrowthChart } from "../components/common/AnalyticsCharts.jsx";
-import { enrollCourse } from "../services/courseService.js";
+import { enrollCourse, unenrollCourse } from "../services/courseService.js";
 import { getSession } from "../services/authService.js";
 import { buildLearningInsights } from "../services/learningInsights.js";
 import { fetchRecommendations } from "../services/recommendationService.js";
@@ -45,7 +46,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { openExplain } = useOutletContext();
   const session = getSession();
-  const user = session?.user || {};
+  const user = useMemo(() => session?.user || {}, [session]);
   const enrolledCourses = useUiStore((state) => state.enrolledCourses);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -84,49 +85,53 @@ export default function Dashboard() {
 
   return (
     <div className="page anim">
-      <div className="hero-greeting dashboard-hero">
-        <div>
-          <div className="hg-main">
-            Weekly learning alignment: <em>{insights.averageMatchScore || 84}%</em>
-          </div>
-          <div className="hg-sub">
-            Your strongest momentum is in <strong style={{ color: "var(--secondary-accent)" }}>{insights.topSkillDomain}</strong>.
-            Stay consistent and your recommendation quality will keep improving.
-          </div>
-        </div>
-        <div className="hero-badge-stack">
-          <span className="dashboard-hero-chip">Streak +{insights.streak} days</span>
-          <span className="dashboard-hero-chip">Top 12% consistency</span>
-        </div>
+      <div className="ph">
+        <div className="pt">Dashboard</div>
+        <div className="ps">Track learning momentum, close skill gaps, and move to your next milestone.</div>
       </div>
 
-      <div className="g4">
+      <div className="g4 dashboard-stats-row">
         {[
           ["🔥", "Learning Streak", `${insights.streak}`, "days"],
           ["📈", "Weekly Alignment", `${insights.averageMatchScore || 84}`, "%"],
-          ["🏆", "Top Skill Domain", insights.topSkillDomain, ""],
           ["⚡", "Skill Gap To Improve", insights.skillGap.missingSkills[0] || insights.weakestSkillDomain, ""],
-        ].map(([icon, label, value, suffix]) => (
-          <div className="card sc lift dashboard-stat" key={label}>
+          ["🏆", "Top Skill Domain", insights.topSkillDomain, ""],
+        ].map(([icon, label, value, suffix], index) => (
+          <Motion.div
+            className="card sc lift dashboard-stat glass-card"
+            key={label}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: index * 0.05 }}
+            whileHover={{ y: -4 }}
+          >
             <div className="dashboard-stat-icon">{icon}</div>
             <div className="sl">{label}</div>
             <div className="sv">{suffix ? <Counter to={Number(value)} suffix={suffix} /> : value}</div>
             <div className="sd">Personalized from your recent activity and recommendation fit.</div>
-          </div>
+          </Motion.div>
         ))}
       </div>
 
       <SkillGapAlert gap={insights.skillGap} />
 
-      <div className="g2">
-        <div className="card analytics-card">
+      <div className="g2 dashboard-chart-row">
+        <Motion.div
+          className="card analytics-card glass-card"
+          whileHover={{ y: -3 }}
+          transition={{ duration: 0.2 }}
+        >
           <div className="analytics-title">Weekly Progress Summary</div>
           <BarChart labels={["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]} values={insights.weeklyActivity} />
-        </div>
-        <div className="card analytics-card">
+        </Motion.div>
+        <Motion.div
+          className="card analytics-card glass-card"
+          whileHover={{ y: -3 }}
+          transition={{ duration: 0.2 }}
+        >
           <div className="analytics-title">Skill Improvement Suggestions</div>
           <GrowthChart items={insights.skillGrowth} />
-        </div>
+        </Motion.div>
       </div>
 
       <div className="sec">
@@ -152,7 +157,12 @@ export default function Dashboard() {
           const isEnrolled = enrolledCourses.some((id) => String(id) === String(course._id));
           const match = course.matchCategory || getMatch(course.relevanceScore || 0).label;
           return (
-            <div className="card dashboard-course-card" key={course._id}>
+            <Motion.div
+              className="card dashboard-course-card glass-card"
+              key={course._id}
+              whileHover={{ y: -4, scale: 1.01 }}
+              transition={{ duration: 0.2 }}
+            >
               <div className="course-card-banner" style={{ background: getCourseBanner(course.category) }}>
                 <PlatformBadge platform={course.platform} />
                 <div className="course-banner-score">{Math.round(course.relevanceScore || 0)}%</div>
@@ -166,7 +176,13 @@ export default function Dashboard() {
                   <span>{course.isFree ? "Free" : `$${course.price}`}</span>
                 </div>
                 <div className="mbar">
-                  <div className="mfill" style={{ width: `${course.relevanceScore}%`, background: getBarColor(course.relevanceScore || 0) }} />
+                  <Motion.div
+                    className="mfill"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${course.relevanceScore}%` }}
+                    transition={{ duration: 0.7, ease: "easeOut" }}
+                    style={{ background: getBarColor(course.relevanceScore || 0) }}
+                  />
                 </div>
                 <div className="reason-tag-list">
                   {(course.reasonTags || []).map((tag) => (
@@ -174,24 +190,40 @@ export default function Dashboard() {
                   ))}
                 </div>
                 <div className="course-card-actions">
-                  <button
+                  <Motion.button
                     className="btn"
-                    style={isEnrolled ? { background: "var(--ac2)", color: "#fff", border: "1px solid var(--ac)" } : { background: "var(--ac)", color: "#fff", border: "1px solid var(--ac)" }}
-                    disabled={isEnrolled}
+                    style={
+                      isEnrolled
+                        ? { background: "#c0392b", color: "#fff", border: "1px solid #a93226" }
+                        : { background: "var(--ac)", color: "#fff", border: "1px solid var(--ac)" }
+                    }
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={async () => {
                       try {
+                        if (isEnrolled) {
+                          await unenrollCourse(course._id);
+                          return;
+                        }
                         await enrollCourse(course._id);
                       } catch (err) {
-                        alert(err.response?.data?.error || err.message || "Failed to enroll.");
+                        alert(err.response?.data?.error || err.message || "Failed to update enrollment.");
                       }
                     }}
                   >
-                    {isEnrolled ? "Enrolled" : "Enroll"}
-                  </button>
-                  <button className="btn bg" onClick={() => openExplain(course)}>Explain</button>
+                    {isEnrolled ? "Unenroll" : "Enroll"}
+                  </Motion.button>
+                  <Motion.button
+                    className="btn bg"
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => openExplain(course)}
+                  >
+                    Explain
+                  </Motion.button>
                 </div>
               </div>
-            </div>
+            </Motion.div>
           );
         })}
       </div>

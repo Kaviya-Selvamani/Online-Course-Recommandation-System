@@ -1,6 +1,6 @@
 import '../index.css'
 import { useUiStore } from '../store/ui.js'
-import { enrollCourse } from '../../services/courseService.js'
+import { enrollCourse, unenrollCourse } from '../../services/courseService.js'
 
 export default function CourseCard({ course, onView }) {
   const { openCourse, enrolledCourses } = useUiStore()
@@ -41,18 +41,24 @@ export default function CourseCard({ course, onView }) {
       <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
         <button
           className="btn btn-primary"
-          style={isEnrolled ? { background: 'var(--ac2)', color: '#fff', border: '1px solid var(--ac)' } : { background: 'var(--ac)', color: '#fff', border: '1px solid var(--ac)' }}
-          disabled={isEnrolled}
+          style={
+            isEnrolled
+              ? { background: '#c0392b', color: '#fff', border: '1px solid #a93226' }
+              : { background: 'var(--ac)', color: '#fff', border: '1px solid var(--ac)' }
+          }
           onClick={async () => {
-            if (isEnrolled) return
             try {
+              if (isEnrolled) {
+                await unenrollCourse(currentCourseId)
+                return
+              }
               await enrollCourse(currentCourseId)
             } catch (err) {
               console.error('Enroll failed', err)
             }
           }}
         >
-          {isEnrolled ? 'Enrolled' : 'Enroll'}
+          {isEnrolled ? 'Unenroll' : 'Enroll'}
         </button>
         <button className="btn" style={{ flex: 1 }} onClick={() => (onView ? onView(course) : openCourse(course))}>
           Details

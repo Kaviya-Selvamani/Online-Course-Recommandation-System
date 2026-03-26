@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { motion as Motion } from "framer-motion";
 import { useOutletContext } from "react-router-dom";
 import PlatformBadge from "../components/common/PlatformBadge.jsx";
 import SkillGapAlert from "../components/common/SkillGapAlert.jsx";
-import { enrollCourse } from "../services/courseService.js";
+import { enrollCourse, unenrollCourse } from "../services/courseService.js";
 import { buildLearningInsights } from "../services/learningInsights.js";
 import { fetchRecommendations } from "../services/recommendationService.js";
 import { getSession } from "../services/authService.js";
@@ -22,7 +23,7 @@ function getCourseAccent(course) {
 export default function Recommendations() {
   const { openExplain } = useOutletContext();
   const session = getSession();
-  const user = session?.user || {};
+  const user = useMemo(() => session?.user || {}, [session]);
   const [filter, setFilter] = useState("all");
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -121,7 +122,12 @@ export default function Recommendations() {
           const isEnrolled = (enrolledCourses || []).some((id) => String(id) === String(course._id));
 
           return (
-            <div className="rec-card" key={course._id}>
+            <Motion.div
+              className="rec-card glass-card"
+              key={course._id}
+              whileHover={{ y: -4, scale: 1.01 }}
+              transition={{ duration: 0.2 }}
+            >
               <div className="course-card-banner" style={{ background: getCourseAccent(course) }}>
                 <PlatformBadge platform={course.platform} />
                 <div className="course-banner-score">{Math.round(score)}%</div>
@@ -145,7 +151,13 @@ export default function Recommendations() {
                 </div>
 
                 <div className="mbar">
-                  <div className="mfill" style={{ width: `${score}%`, background: getBarColor(score) }} />
+                  <Motion.div
+                    className="mfill"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${score}%` }}
+                    transition={{ duration: 0.75, ease: "easeOut" }}
+                    style={{ background: getBarColor(score) }}
+                    />
                 </div>
 
                 <div className="reason-tag-list">
@@ -161,24 +173,40 @@ export default function Recommendations() {
                 </div>
 
                 <div className="course-card-actions">
-                  <button
+                  <Motion.button
                     className="btn"
-                    style={isEnrolled ? { background: "var(--ac2)", color: "#fff", border: "1px solid var(--ac)" } : { background: "var(--ac)", color: "#fff", border: "1px solid var(--ac)" }}
-                    disabled={isEnrolled}
+                    style={
+                      isEnrolled
+                        ? { background: "#c0392b", color: "#fff", border: "1px solid #a93226" }
+                        : { background: "var(--ac)", color: "#fff", border: "1px solid var(--ac)" }
+                    }
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={async () => {
                       try {
+                        if (isEnrolled) {
+                          await unenrollCourse(course._id);
+                          return;
+                        }
                         await enrollCourse(course._id);
                       } catch (err) {
-                        alert(err.response?.data?.error || err.message || "Failed to enroll.");
+                        alert(err.response?.data?.error || err.message || "Failed to update enrollment.");
                       }
                     }}
                   >
-                    {isEnrolled ? "Enrolled" : "Enroll"}
-                  </button>
-                  <button className="btn bg" onClick={() => openExplain(course)}>Explain</button>
+                    {isEnrolled ? "Unenroll" : "Enroll"}
+                  </Motion.button>
+                  <Motion.button
+                    className="btn bg"
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => openExplain(course)}
+                  >
+                    Explain
+                  </Motion.button>
                 </div>
               </div>
-            </div>
+            </Motion.div>
           );
         })}
       </div>
