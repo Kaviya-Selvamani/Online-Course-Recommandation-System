@@ -1,7 +1,7 @@
 import Tag from "../common/Tag.jsx";
 import SectionCard from "../common/SectionCard.jsx";
 
-export default function LearningProfileCard({ skillLevel, interests, careerGoal, studyHours }) {
+export default function LearningProfileCard({ skillLevel, interests, preferredRole, studyHours }) {
   return (
     <SectionCard title="Learning Profile" subtitle="Your preferences that power recommendations.">
       <div className="space-y-4 text-sm text-slate-200">
@@ -18,8 +18,8 @@ export default function LearningProfileCard({ skillLevel, interests, careerGoal,
           </div>
         </div>
         <div>
-          <div className="text-xs uppercase tracking-wide text-slate-400">Career Goal</div>
-          <div className="mt-1 font-semibold">{careerGoal}</div>
+          <div className="text-xs uppercase tracking-wide text-slate-400">Preferred Role</div>
+          <div className="mt-1 font-semibold">{preferredRole}</div>
         </div>
         <div>
           <div className="text-xs uppercase tracking-wide text-slate-400">Preferred Study Hours</div>

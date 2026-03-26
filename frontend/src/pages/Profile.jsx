@@ -87,9 +87,7 @@ export default function Profile() {
   const email = user.email || "student@courseiq.ai";
   const avatarUrl = user.avatarUrl || "";
   const joinedDate = formatDate(user.createdAt || user.joinedAt);
-  const bio =
-    user.bio ||
-    'I am building a MERN stack project called "Online Course Recommendation System".';
+  const bio = user.bio || "";
   const skillLevel =
     user.learningPreferences?.preferredDifficultyLevel ||
     user.skillLevel ||
@@ -143,7 +141,7 @@ export default function Profile() {
           <LearningProfileCard
             skillLevel={skillLevel}
             interests={interests}
-            careerGoal={careerTarget}
+            preferredRole={careerTarget}
             studyHours={studyHours}
           />
           <PerformanceAnalytics
