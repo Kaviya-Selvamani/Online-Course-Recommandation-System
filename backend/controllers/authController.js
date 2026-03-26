@@ -201,6 +201,14 @@ function isValidRole(role) {
   return role === "student" || role === "admin";
 }
 
+function isEmailConfigError(error) {
+  const message = String(error?.message || "");
+  return (
+    message.includes("Email service not configured") ||
+    message.includes("EMAIL_FROM is not set")
+  );
+}
+
 function createOneTimeCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
@@ -383,7 +391,17 @@ export async function signup(req, res) {
         userExists.emailVerificationExpires = expiresFromNow(VERIFICATION_CODE_TTL_MIN);
         await userExists.save();
 
-        await sendVerificationEmail(userExists, verificationCode);
+        try {
+          await sendVerificationEmail(userExists, verificationCode);
+        } catch (error) {
+          if (isEmailConfigError(error)) {
+            return res.status(503).json({
+              error: "Email service is not configured. Please contact the administrator.",
+              code: "EMAIL_NOT_CONFIGURED",
+            });
+          }
+          throw error;
+        }
 
         return res.status(200).json({
           requiresVerification: true,
@@ -432,7 +450,17 @@ export async function signup(req, res) {
       },
       skills: normalizedSkills,
     });
-    await sendVerificationEmail(user, verificationCode);
+    try {
+      await sendVerificationEmail(user, verificationCode);
+    } catch (error) {
+      if (isEmailConfigError(error)) {
+        return res.status(503).json({
+          error: "Email service is not configured. Please contact the administrator.",
+          code: "EMAIL_NOT_CONFIGURED",
+        });
+      }
+      throw error;
+    }
 
     return res.status(201).json({
       requiresVerification: true,
@@ -573,7 +601,17 @@ export async function resendVerification(req, res) {
     user.emailVerificationExpires = expiresFromNow(VERIFICATION_CODE_TTL_MIN);
     await user.save();
 
-    await sendVerificationEmail(user, verificationCode);
+    try {
+      await sendVerificationEmail(user, verificationCode);
+    } catch (error) {
+      if (isEmailConfigError(error)) {
+        return res.status(503).json({
+          error: "Email service is not configured. Please contact the administrator.",
+          code: "EMAIL_NOT_CONFIGURED",
+        });
+      }
+      throw error;
+    }
 
     return res.json({ success: true, message: "Verification code sent." });
   } catch (error) {
@@ -604,7 +642,17 @@ export async function sendPasswordReset(req, res) {
     user.passwordResetExpires = expiresFromNow(RESET_CODE_TTL_MIN);
     await user.save();
 
-    await sendPasswordResetEmail(user, resetCode);
+    try {
+      await sendPasswordResetEmail(user, resetCode);
+    } catch (error) {
+      if (isEmailConfigError(error)) {
+        return res.status(503).json({
+          error: "Email service is not configured. Please contact the administrator.",
+          code: "EMAIL_NOT_CONFIGURED",
+        });
+      }
+      throw error;
+    }
 
     return res.json({ success: true, message: "Reset code sent." });
   } catch (error) {
