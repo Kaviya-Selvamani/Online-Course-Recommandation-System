@@ -60,6 +60,19 @@ const userSchema = mongoose.Schema({
     recommendationRefreshedAt: {
         type: Date,
     },
+    lastLoginAt: {
+        type: Date,
+    },
+    lastFailedLoginAt: {
+        type: Date,
+    },
+    failedLoginAttempts: {
+        type: Number,
+        default: 0,
+    },
+    lastActivityAt: {
+        type: Date,
+    },
     emailVerified: {
         type: Boolean,
         default: true,

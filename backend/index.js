@@ -10,6 +10,7 @@ import courseRoutes from './routes/courses.js';
 import recommendationRoutes from './routes/recommendations.js';
 import adminRoutes from './routes/admin.js';
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
+import { recordRequest } from './utils/metricsStore.js';
 
 // Load env vars
 dotenv.config();
@@ -57,6 +58,18 @@ console.log("CORS allowed origins:", allowedOrigins);
 app.use(cors(corsOptions));
 // Express 5 + path-to-regexp doesn't accept "*" here; cors middleware already handles preflight.
 app.use(morgan('dev'));
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    recordRequest({
+      method: req.method,
+      path: req.originalUrl || req.url,
+      statusCode: res.statusCode,
+      durationMs: Date.now() - start,
+    });
+  });
+  next();
+});
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

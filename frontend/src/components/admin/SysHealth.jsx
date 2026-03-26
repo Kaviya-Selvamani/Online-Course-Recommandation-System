@@ -1,18 +1,62 @@
+import { useEffect, useState } from "react";
+import { fetchAdminOverview } from "../../services/adminService.js";
+
+function formatUptime(seconds) {
+  if (!seconds) return "—";
+  const hours = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  return hours ? `${hours}h ${mins}m` : `${mins}m`;
+}
+
 export default function SysHealth() {
+  const [overview, setOverview] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchAdminOverview()
+      .then((data) => {
+        if (!cancelled) {
+          setOverview(data);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err.response?.data?.error || "Failed to load system health.");
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const health = overview?.systemHealth || {};
+  const userActivity = overview?.userActivity || {};
+  const logs = overview?.logs || [];
+
   const metrics = [
-    { icon: "🖥️", l: "Server Uptime", v: "99.8%", s: "ok" },
-    { icon: "⚡", l: "API Response", v: "142ms", s: "ok" },
-    { icon: "💾", l: "DB Load", v: "68%", s: "warn" },
-    { icon: "👥", l: "Active Users", v: "347", s: "ok" },
+    { icon: "🖥️", l: "Server Uptime", v: formatUptime(health.uptimeSeconds), s: "ok" },
+    { icon: "⚡", l: "API Response", v: `${health.avgResponseMs || 0}ms`, s: health.avgResponseMs > 800 ? "warn" : "ok" },
+    { icon: "💾", l: "DB Load", v: `${health.dbLoad?.score || 0}%`, s: health.dbLoad?.status === "warning" ? "warn" : "ok" },
+    { icon: "👥", l: "Active Users", v: `${userActivity.activeUsersToday || 0}`, s: "ok" },
   ];
 
-  const logs = [
-    { c: "#18c98a", msg: "Recommendation engine recalculated for 284 users", t: "2 min ago" },
-    { c: "#f0a030", msg: "Database CPU spiked to 68% — monitoring", t: "8 min ago" },
-    { c: "#18c98a", msg: "Course catalog sync completed successfully", t: "15 min ago" },
-    { c: "#18c98a", msg: "New user batch processed (48 users)", t: "1 hour ago" },
-    { c: "#f05a4a", msg: "Failed login attempt detected from 192.168.x.x", t: "2 hours ago" },
-    { c: "#18c98a", msg: "Nightly backup completed — 2.4GB stored", t: "6 hours ago" },
+  const serviceStatus = [
+    ["Recommendation Engine", "Online", "#18c98a"],
+    ["Course Catalog API", "Online", "#18c98a"],
+    ["Authentication", "Online", "#18c98a"],
+    ["Database Cluster", health.dbLoad?.status === "warning" ? "Degraded" : "Online", health.dbLoad?.status === "warning" ? "#f0a030" : "#18c98a"],
+    ["Email Service", "Online", "#18c98a"],
+  ];
+
+  const resourceUsage = [
+    ["Error Rate", health.errorRate || 0, health.errorRate > 2 ? "#f0a030" : "#18c98a"],
+    ["Requests / min", Math.min(100, health.requestsPerMinute || 0), "#4ab8f5"],
+    ["DB Load", health.dbLoad?.score || 0, health.dbLoad?.status === "warning" ? "#f0a030" : "#18c98a"],
+    ["Latency p95", Math.min(100, Math.round((health.p95ResponseMs || 0) / 10)), "#18c98a"],
   ];
 
   return (
@@ -22,11 +66,13 @@ export default function SysHealth() {
         <div className="ps">Real-time platform monitoring and diagnostics</div>
       </div>
 
+      {error ? <div className="card" style={{ padding: 16 }}>{error}</div> : null}
+
       <div className="health-grid">
         {metrics.map((m) => (
           <div className={"hc " + m.s} key={m.l}>
             <div className="hc-icon">{m.icon}</div>
-            <div className="hc-val">{m.v}</div>
+            <div className="hc-val">{loading ? "—" : m.v}</div>
             <div className="hc-lbl">{m.l}</div>
           </div>
         ))}
@@ -37,14 +83,7 @@ export default function SysHealth() {
           <div style={{ fontFamily: "var(--fd)", fontSize: 13.5, fontWeight: 700, color: "var(--t)", marginBottom: 14 }}>
             Service Status
           </div>
-          {[
-            ["Recommendation Engine", "Online", "#18c98a"],
-            ["Course Catalog API", "Online", "#18c98a"],
-            ["Authentication", "Online", "#18c98a"],
-            ["Database Cluster", "Degraded", "#f0a030"],
-            ["File Storage", "Online", "#18c98a"],
-            ["Email Service", "Online", "#18c98a"],
-          ].map(([service, status, color]) => (
+          {serviceStatus.map(([service, status, color]) => (
             <div
               key={service}
               style={{
@@ -76,45 +115,17 @@ export default function SysHealth() {
           <div style={{ fontFamily: "var(--fd)", fontSize: 13.5, fontWeight: 700, color: "var(--t)", marginBottom: 14 }}>
             Resource Usage
           </div>
-          {[
-            ["CPU Usage", 52, "#18c98a"],
-            ["Memory", 71, "#f0a030"],
-            ["Storage", 38, "#4ab8f5"],
-            ["Bandwidth", 29, "#18c98a"],
-          ].map(([label, pct, color]) => (
+          {resourceUsage.map(([label, pct, color]) => (
             <div className="skill-row" key={label}>
               <div className="skill-top">
                 <span className="skill-lbl">{label}</span>
                 <span className="skill-pct">{pct}%</span>
               </div>
               <div className="skill-track">
-                <div className="skill-fill" style={{ width: pct + "%", background: color }} />
+                <div className="skill-fill" style={{ width: Math.min(100, pct) + "%", background: color }} />
               </div>
             </div>
           ))}
-
-          <div style={{ marginTop: 16 }}>
-            {[
-              ["Requests/min", "2,847"],
-              ["Cache Hit Rate", "94.2%"],
-              ["Error Rate", "0.02%"],
-              ["Queue Depth", "12 jobs"],
-            ].map(([k, v]) => (
-              <div
-                key={k}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  padding: "7px 0",
-                  borderBottom: "1px solid var(--bd)",
-                  fontSize: 13,
-                }}
-              >
-                <span style={{ color: "var(--t2)" }}>{k}</span>
-                <span style={{ fontWeight: 600, color: "var(--t)" }}>{v}</span>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 
@@ -122,17 +133,22 @@ export default function SysHealth() {
         <div style={{ fontFamily: "var(--fd)", fontSize: 13.5, fontWeight: 700, color: "var(--t)", marginBottom: 14 }}>
           System Logs
         </div>
-        {logs.map((l, i) => (
-          <div className="log-item" key={i}>
-            <div className="log-dot" style={{ background: l.c }} />
-            <div>
-              <div className="log-msg">{l.msg}</div>
-              <div className="log-time">{l.t}</div>
+        {loading ? (
+          <div className="activity-empty">Loading logs...</div>
+        ) : logs.length ? (
+          logs.map((log) => (
+            <div className="log-item" key={log.id}>
+              <div className="log-dot" style={{ background: log.level === "error" ? "#f05a4a" : log.level === "warning" ? "#f0a030" : "#18c98a" }} />
+              <div>
+                <div className="log-msg">{log.message}</div>
+                <div className="log-time">{new Date(log.time).toLocaleString()}</div>
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        ) : (
+          <div className="activity-empty">No logs yet.</div>
+        )}
       </div>
     </div>
   );
 }
-

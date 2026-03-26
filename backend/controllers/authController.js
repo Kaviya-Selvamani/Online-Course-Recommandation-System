@@ -4,6 +4,7 @@ import User from "../models/User.js";
 import Course from "../models/Course.js";
 import Enrollment from "../models/Enrollment.js";
 import { sendEmail } from "../utils/email.js";
+import { addLog } from "../utils/metricsStore.js";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const BCRYPT_HASH_REGEX = /^\$2[aby]\$\d{2}\$.{53}$/;
@@ -169,6 +170,8 @@ function buildUserPayload(user, includeToken = false) {
     updatedAt: user.updatedAt,
     notificationSettings,
     recommendationRefreshedAt: user.recommendationRefreshedAt,
+    lastLoginAt: user.lastLoginAt,
+    lastActivityAt: user.lastActivityAt,
     skillLevel: normalizeDifficulty(user.skillLevel, preferredDifficultyLevel),
     interests: user.interests,
     careerGoal: user.careerGoal || careerTarget,
@@ -415,6 +418,7 @@ export async function login(req, res) {
 
     const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
+      addLog(`Failed login attempt for unknown email: ${normalizedEmail}`, "warning");
       return res.status(401).json({ error: "Invalid email or password." });
     }
 
@@ -430,12 +434,22 @@ export async function login(req, res) {
     }
 
     if (!isPasswordValid) {
+      user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
+      user.lastFailedLoginAt = new Date();
+      await user.save();
+      addLog(`Failed login attempt for ${user.email}`, "warning");
       return res.status(401).json({ error: "Invalid email or password." });
     }
 
     if (user.role !== role) {
       return res.status(403).json({ error: `This account is not registered as ${role}.` });
     }
+
+    user.lastLoginAt = new Date();
+    user.lastActivityAt = new Date();
+    user.failedLoginAttempts = 0;
+    user.lastFailedLoginAt = undefined;
+    await user.save();
 
     return res.json(buildUserPayload(user, true));
   } catch (error) {
@@ -613,6 +627,8 @@ export async function updateProfile(req, res) {
     user.preferredPlatforms = nextLearningPreferences.preferredPlatforms;
     user.learningFormat = nextLearningPreferences.learningFormat;
 
+    user.recommendationRefreshedAt = new Date();
+    user.lastActivityAt = new Date();
     const updatedUser = await user.save();
     return res.json(buildUserPayload(updatedUser));
   } catch (error) {
@@ -789,6 +805,8 @@ export async function enrollInCourse(req, res) {
     }
 
     user.enrolledCourses.push(normalizedCourseId);
+    user.lastActivityAt = new Date();
+    user.recommendationRefreshedAt = new Date();
     await user.save();
 
     let enrolledCourse = null;
@@ -848,6 +866,8 @@ export async function unenrollInCourse(req, res) {
     user.enrolledCourses = user.enrolledCourses.filter(
       (id) => String(id) !== normalizedCourseId
     );
+    user.lastActivityAt = new Date();
+    user.recommendationRefreshedAt = new Date();
     await user.save();
 
     if (mongoose.Types.ObjectId.isValid(normalizedCourseId)) {
