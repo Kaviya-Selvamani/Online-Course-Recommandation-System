@@ -1,4 +1,5 @@
 import Course from "../models/Course.js";
+import Enrollment from "../models/Enrollment.js";
 import User from "../models/User.js";
 import mongoose from "mongoose";
 import {
@@ -6,6 +7,26 @@ import {
   computeRelevanceScore,
   normalizeRating,
 } from "../utils/relevanceScoring.js";
+
+function mapEnrollmentRosterEntry(entry = {}) {
+  const user = entry.user || {};
+  return {
+    id: entry._id,
+    status: entry.status || "enrolled",
+    progress: typeof entry.progress === "number" ? entry.progress : 0,
+    enrolledAt: entry.startedAt || entry.createdAt || null,
+    completedAt: entry.completedAt || null,
+    lastActivityAt: entry.lastActivityAt || null,
+    learner: user?._id
+      ? {
+          _id: user._id,
+          name: user.name,
+          role: user.role,
+          avatarUrl: user.avatarUrl || "",
+        }
+      : null,
+  };
+}
 
 export async function getCourses(req, res) {
   try {
@@ -47,12 +68,21 @@ export async function getCourseById(req, res) {
       return res.status(400).json({ error: "Invalid course ID." });
     }
 
-    const course = await Course.findById(id);
+    const [course, enrollmentRoster] = await Promise.all([
+      Course.findById(id).lean(),
+      Enrollment.find({ course: id })
+        .populate("user", "name role avatarUrl")
+        .sort({ startedAt: -1, createdAt: -1 })
+        .lean(),
+    ]);
     if (!course) {
       return res.status(404).json({ error: "Course not found." });
     }
 
-    return res.json(course);
+    return res.json({
+      ...course,
+      enrollmentRoster: enrollmentRoster.map(mapEnrollmentRosterEntry),
+    });
   } catch (error) {
     return res.status(500).json({ error: "Server error fetching course" });
   }
@@ -140,6 +170,15 @@ export async function enrollInCourse(req, res) {
     await user.save();
 
     if (mongoose.Types.ObjectId.isValid(normalizedCourseId)) {
+      await Enrollment.findOneAndUpdate(
+        { user: user._id, course: normalizedCourseId },
+        {
+          $setOnInsert: { startedAt: new Date() },
+          $set: { status: "enrolled", lastActivityAt: new Date() },
+        },
+        { upsert: true }
+      );
+
       const course = await Course.findById(normalizedCourseId);
       if (course) {
         course.enrollments = (course.enrollments || 0) + 1;

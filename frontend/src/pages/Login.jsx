@@ -26,12 +26,36 @@ export default function Login() {
     }
   }, [location.state]);
 
+  const getLoginErrorMessage = (error) => {
+    const status = error.response?.status;
+    const serverMessage = error.response?.data?.error;
+
+    if (serverMessage) {
+      return serverMessage;
+    }
+    if (!error.response) {
+      return "Unable to reach the server right now. Please try again in a moment.";
+    }
+    if (status === 401) {
+      return role === "admin"
+        ? "Admin login failed. Check your email, password, and Admin ID."
+        : "Invalid email or password.";
+    }
+    if (status === 403) {
+      return `This account is not registered as ${role}.`;
+    }
+    return "Invalid credentials or server error.";
+  };
+
   const submit = async () => {
-    if (!email || !pass) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedAdminId = adminId.trim();
+
+    if (!normalizedEmail || !pass) {
       setErr("Please fill in all fields.");
       return;
     }
-    if (role === "admin" && !adminId) {
+    if (role === "admin" && !normalizedAdminId) {
       setErr("Admin ID is required for admin login.");
       return;
     }
@@ -39,14 +63,14 @@ export default function Login() {
     setErr("");
     try {
       await serverLogin({
-        email,
+        email: normalizedEmail,
         password: pass,
         role,
-        adminId: role === "admin" ? adminId : undefined,
+        adminId: role === "admin" ? normalizedAdminId : undefined,
       });
       navigate(role === "admin" ? "/admin" : from, { replace: true });
     } catch (error) {
-      setErr(error.response?.data?.error || "Invalid credentials or server error.");
+      setErr(getLoginErrorMessage(error));
     }
   };
 

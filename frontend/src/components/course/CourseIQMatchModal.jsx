@@ -2,6 +2,12 @@ import { AnimatePresence, motion as Motion } from "framer-motion";
 import { useMemo, useState } from "react";
 import { calcScore, getMatch } from "../../data/courseiq1.js";
 
+function buildFallbackScore(course) {
+  const ratingScore = Math.round((Number(course?.rating || 0) / 5) * 100);
+  const popularityScore = Math.min(100, Math.round(Number(course?.enrollments || 0)));
+  return Math.round(ratingScore * 0.65 + popularityScore * 0.35);
+}
+
 function buildLegacyBreakdown(course) {
   if (!course?.scores) return [];
 
@@ -35,6 +41,31 @@ function buildLegacyWhy(course, score) {
     score,
     category: getMatch(score).label,
     breakdown: buildLegacyBreakdown(course),
+    why: reasons.slice(0, 4),
+  };
+}
+
+function buildFallbackWhy(course) {
+  const score = buildFallbackScore(course);
+  const reasons = [];
+
+  if ((course?.tags || []).length) {
+    reasons.push(`Covers ${course.tags[0]} and related skills`);
+  }
+  if (course?.difficulty) {
+    reasons.push(`${course.difficulty} level course`);
+  }
+  if (course?.rating) {
+    reasons.push(`Strong learner rating of ${Number(course.rating).toFixed(1)}/5`);
+  }
+  if (course?.enrollments) {
+    reasons.push("Popular with learners on the platform");
+  }
+
+  return {
+    score,
+    category: getMatch(score).label,
+    breakdown: normalizeBreakdown([]),
     why: reasons.slice(0, 4),
   };
 }
@@ -88,6 +119,10 @@ export default function CourseIQMatchModal({ course, onClose }) {
         breakdown: normalizeBreakdown(course.scoreBreakdown),
         why: course.whyRecommended || [],
       };
+    }
+
+    if (!course.scores) {
+      return buildFallbackWhy(course);
     }
 
     const legacy = buildLegacyWhy(course, calcScore(course.scores));

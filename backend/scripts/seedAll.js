@@ -1,13 +1,28 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import fs from "fs";
+import path from "path";
 import { fileURLToPath } from "url";
 import User from "../models/User.js";
 import Course from "../models/Course.js";
 import Enrollment from "../models/Enrollment.js";
 import Feedback from "../models/Feedback.js";
 import Recommendation from "../models/Recommendation.js";
+import Bookmark from "../models/Bookmark.js";
+import Review from "../models/Review.js";
+import ActivityLog from "../models/ActivityLog.js";
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+function loadCoursesFromJson() {
+  const dataPath = path.join(__dirname, "../data/courses.json");
+  const fileData = fs.readFileSync(dataPath, "utf-8");
+  const parsed = JSON.parse(fileData);
+  return Array.isArray(parsed) ? parsed : [];
+}
 
 export async function seedAll({ clear = false } = {}) {
   if (!process.env.MONGO_URI) {
@@ -23,7 +38,18 @@ export async function seedAll({ clear = false } = {}) {
       Enrollment.deleteMany(),
       Feedback.deleteMany(),
       Recommendation.deleteMany(),
+      Bookmark.deleteMany(),
+      Review.deleteMany(),
+      ActivityLog.deleteMany(),
     ]);
+  }
+
+  const existingUsers = await User.countDocuments();
+  const existingCourses = await Course.countDocuments();
+  if (!clear && (existingUsers > 0 || existingCourses > 0)) {
+    throw new Error(
+      "Database already contains data. Re-run with SEED_CLEAR=true if you want to replace it."
+    );
   }
 
   const admin = await User.create({
@@ -56,50 +82,12 @@ export async function seedAll({ clear = false } = {}) {
     },
   ]);
 
-  const courses = await Course.create([
-    {
-      title: "Intro to Python",
-      description: "Learn Python basics for data analysis.",
-      provider: "Coursera",
-      platform: "Coursera",
-      courseUrl: "https://www.coursera.org/learn/python",
-      category: "Data Science",
-      difficulty: "Beginner",
-      tags: ["Python", "Programming"],
-      price: 0,
-      isFree: true,
-      rating: 4.6,
-      ratingCount: 1200,
-    },
-    {
-      title: "Machine Learning Foundations",
-      description: "Supervised and unsupervised learning basics.",
-      provider: "Stanford",
-      platform: "Coursera",
-      courseUrl: "https://www.coursera.org/learn/machine-learning",
-      category: "AI/ML",
-      difficulty: "Intermediate",
-      tags: ["Machine Learning", "AI"],
-      price: 49,
-      isFree: false,
-      rating: 4.8,
-      ratingCount: 890,
-    },
-    {
-      title: "AWS Cloud Practitioner",
-      description: "Build cloud fundamentals with AWS.",
-      provider: "AWS",
-      platform: "Coursera",
-      courseUrl: "https://www.coursera.org/learn/aws-cloud-practitioner",
-      category: "Cloud",
-      difficulty: "Beginner",
-      tags: ["AWS", "Cloud"],
-      price: 0,
-      isFree: true,
-      rating: 4.5,
-      ratingCount: 640,
-    },
-  ]);
+  const seededCourseData = loadCoursesFromJson();
+  if (!seededCourseData.length) {
+    throw new Error("No courses found in backend/data/courses.json.");
+  }
+
+  const courses = await Course.insertMany(seededCourseData);
 
   const [course1, course2, course3] = courses;
 
@@ -128,6 +116,7 @@ export async function seedAll({ clear = false } = {}) {
   });
 
   console.log("Seed completed.");
+  console.log(`Courses imported: ${courses.length}`);
   console.log(`Admin user: ${admin.email} / admin123`);
   console.log(`Student user: ${user1.email} / password123`);
   console.log(`Student user: ${user2.email} / password123`);

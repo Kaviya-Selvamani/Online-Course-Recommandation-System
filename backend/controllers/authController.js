@@ -210,6 +210,10 @@ function normalizeName(name) {
   return String(name || "").trim();
 }
 
+function getConfiguredAdminSecret() {
+  return String(process.env.ADMIN_SECRET_ID || "").trim();
+}
+
 function isValidRole(role) {
   return role === "student" || role === "admin";
 }
@@ -277,6 +281,7 @@ export async function signup(req, res) {
 
     const normalizedName = normalizeName(name);
     const normalizedEmail = normalizeEmail(email);
+    const normalizedAdminId = normalizeName(adminId);
 
     if (!normalizedName || !normalizedEmail || !password || !role) {
       return res
@@ -298,7 +303,8 @@ export async function signup(req, res) {
         .json({ error: "Password must be at least 8 characters long." });
     }
 
-    if (role === "admin" && (!adminId || adminId !== process.env.ADMIN_SECRET_ID)) {
+    const configuredAdminSecret = getConfiguredAdminSecret();
+    if (role === "admin" && (!configuredAdminSecret || normalizedAdminId !== configuredAdminSecret)) {
       return res.status(401).json({ error: "Invalid admin ID." });
     }
 
@@ -398,6 +404,8 @@ export async function login(req, res) {
   try {
     const { email, password, role, adminId } = req.body || {};
     const normalizedEmail = normalizeEmail(email);
+    const normalizedAdminId = normalizeName(adminId);
+    const configuredAdminSecret = getConfiguredAdminSecret();
 
     if (!role) {
       return res.status(400).json({ error: "Role is required." });
@@ -412,7 +420,9 @@ export async function login(req, res) {
       return res.status(400).json({ error: "Please enter a valid email address." });
     }
 
-    if (role === "admin" && (!adminId || adminId !== process.env.ADMIN_SECRET_ID)) {
+    // Keep the extra admin gate when configured, but don't make admin login
+    // impossible on deployments where the env var is missing.
+    if (role === "admin" && configuredAdminSecret && normalizedAdminId !== configuredAdminSecret) {
       return res.status(401).json({ error: "Invalid admin ID." });
     }
 

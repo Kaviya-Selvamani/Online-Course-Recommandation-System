@@ -1,9 +1,36 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import PlatformBadge from "../components/common/PlatformBadge.jsx";
-import { COURSES, calcScore, getBarColor, getMatch } from "../data/courseiq1.js";
+import { getBarColor, getMatch } from "../data/courseiq1.js";
+import { fetchCoursesCatalog } from "../services/courseService.js";
 import { enrollCourse, unenrollCourse } from "../services/courseService.js";
 import { useUiStore } from "../store/ui.js";
+
+function getCourseAccent(course) {
+  const category = String(course?.category || "").toLowerCase();
+  if (category.includes("ai") || category.includes("ml")) return "var(--bg-ml)";
+  if (category.includes("data")) return "var(--bg-py)";
+  if (category.includes("cloud") || category.includes("aws")) return "var(--bg-aws)";
+  if (category.includes("web") || category.includes("frontend")) return "var(--bg-web)";
+  if (category.includes("design") || category.includes("ux")) return "var(--bg-ux)";
+  return "var(--bg-api)";
+}
+
+function getCourseEmoji(course) {
+  const category = String(course?.category || "").toLowerCase();
+  if (category.includes("ai") || category.includes("ml")) return "AI";
+  if (category.includes("data")) return "DS";
+  if (category.includes("cloud") || category.includes("aws")) return "CL";
+  if (category.includes("web") || category.includes("frontend")) return "WEB";
+  if (category.includes("design") || category.includes("ux")) return "UX";
+  return "CS";
+}
+
+function getCatalogScore(course) {
+  const ratingScore = Math.round((Number(course?.rating || 0) / 5) * 100);
+  const popularityScore = Math.min(100, Math.round(Number(course?.enrollments || 0)));
+  return Math.round(ratingScore * 0.65 + popularityScore * 0.35);
+}
 
 export default function Courses() {
   const navigate = useNavigate();
@@ -17,26 +44,49 @@ export default function Courses() {
   const [priceF, setPriceF] = useState("all");
   const [platF, setPlatF] = useState("all");
   const [view, setView] = useState("all");
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
   const enrolledCourses = useUiStore((state) => state.enrolledCourses);
 
   useEffect(() => {
     if (initialCourseId) {
-      const id = Number(initialCourseId);
-      if (!Number.isNaN(id)) navigate(`/course/${id}`);
+      navigate(`/course/${initialCourseId}`);
     }
   }, [initialCourseId, navigate]);
 
-  const categories = useMemo(() => ["all", ...new Set(COURSES.map((course) => course.category))], []);
-  const platforms = useMemo(() => ["all", ...new Set(COURSES.map((course) => course.platform))], []);
-  const knownIdSet = useMemo(() => new Set(COURSES.map((course) => String(course.id))), []);
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchCoursesCatalog()
+      .then((data) => {
+        if (!cancelled) {
+          setCourses(Array.isArray(data) ? data : []);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCourses([]);
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const categories = useMemo(() => ["all", ...new Set(courses.map((course) => course.category).filter(Boolean))], [courses]);
+  const platforms = useMemo(() => ["all", ...new Set(courses.map((course) => course.platform).filter(Boolean))], [courses]);
+  const knownIdSet = useMemo(() => new Set(courses.map((course) => String(course._id))), [courses]);
 
   const filteredCourses = useMemo(
     () =>
-      COURSES.filter((course) => {
+      courses.filter((course) => {
         const matchesSearch =
           course.title.toLowerCase().includes(search.toLowerCase()) ||
           course.category.toLowerCase().includes(search.toLowerCase()) ||
-          course.tags.some((tag) => tag.toLowerCase().includes(search.toLowerCase()));
+          (course.tags || []).some((tag) => tag.toLowerCase().includes(search.toLowerCase()));
 
         const matchesDifficulty = diffF === "all" || course.difficulty.toLowerCase() === diffF;
         const matchesCategory = catF === "all" || course.category === catF;
@@ -45,7 +95,7 @@ export default function Courses() {
 
         return matchesSearch && matchesDifficulty && matchesCategory && matchesPrice && matchesPlatform;
       }),
-    [search, diffF, catF, priceF, platF]
+    [courses, search, diffF, catF, priceF, platF]
   );
 
   const enrolledIdSet = useMemo(
@@ -61,7 +111,7 @@ export default function Courses() {
   const visibleCourses = useMemo(() => {
     if (view !== "enrolled") return filteredCourses;
     return filteredCourses.filter((course) =>
-      enrolledIdSet.has(String(course.id))
+      enrolledIdSet.has(String(course._id))
     );
   }, [filteredCourses, view, enrolledIdSet]);
 
@@ -123,17 +173,19 @@ export default function Courses() {
         {view === "enrolled" ? `${visibleCourses.length} enrolled courses` : `${visibleCourses.length} courses available`}
       </div>
 
+      {loading ? <div className="empty-state">Loading courses...</div> : null}
+
       <div className="g3">
         {visibleCourses.map((course) => {
-          const score = calcScore(course.scores);
+          const score = getCatalogScore(course);
           const meta = getMatch(score);
-          const isEnrolled = enrolledCourses.some((id) => String(id) === String(course.id));
+          const isEnrolled = enrolledCourses.some((id) => String(id) === String(course._id));
           const externalCourseLink = course.courseUrl || "";
 
           return (
-            <div className="card catalog-card lift" key={course.id} onClick={() => navigate(`/course/${course.id}`)}>
-              <div className="catalog-card-banner" style={{ background: course.bg }}>
-                <div className="catalog-card-emoji">{course.emoji}</div>
+            <div className="card catalog-card lift" key={course._id} onClick={() => navigate(`/course/${course._id}`)}>
+              <div className="catalog-card-banner" style={{ background: getCourseAccent(course) }}>
+                <div className="catalog-card-emoji">{getCourseEmoji(course)}</div>
                 <PlatformBadge platform={course.platform} />
               </div>
 
@@ -157,7 +209,7 @@ export default function Courses() {
                 </div>
 
                 <div className="course-card-tags">
-                  {course.tags.map((tag) => (
+                  {(course.tags || []).map((tag) => (
                     <span key={tag} className="tg">{tag}</span>
                   ))}
                 </div>
@@ -188,10 +240,10 @@ export default function Courses() {
                     onClick={async () => {
                       try {
                         if (isEnrolled) {
-                          await unenrollCourse(course.id);
+                          await unenrollCourse(course._id);
                           return;
                         }
-                        await enrollCourse(course.id);
+                        await enrollCourse(course._id);
                       } catch (err) {
                         alert(err.response?.data?.error || err.message || "Failed to update enrollment.");
                       }
@@ -207,7 +259,7 @@ export default function Courses() {
         })}
       </div>
 
-      {visibleCourses.length === 0 ? (
+      {!loading && visibleCourses.length === 0 ? (
         <div className="empty-state">
           {view === "enrolled"
             ? enrolledCourses.length === 0

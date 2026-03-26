@@ -11,19 +11,25 @@ const OLD_URI = process.env.OLD_MONGO_URI;
 const NEW_URI = process.env.MONGO_URI;
 const MODE = process.env.MIGRATE_MODE || "merge"; // merge | overwrite
 const AUTO_SEED = process.env.MIGRATE_SEED === "true";
-
-const COLLECTIONS = [
-  "users",
-  "courses",
-  "enrollments",
-  "feedbacks",
-  "activitylogs",
-  "recommendations",
-];
+const CONFIGURED_COLLECTIONS = (process.env.MIGRATE_COLLECTIONS || "")
+  .split(",")
+  .map((name) => name.trim())
+  .filter(Boolean);
 
 function getBackupDir() {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   return path.resolve(process.cwd(), "backups", `migration-${stamp}`);
+}
+
+async function getCollectionNames(connection) {
+  if (CONFIGURED_COLLECTIONS.length) {
+    return CONFIGURED_COLLECTIONS;
+  }
+
+  const collections = await connection.db.listCollections().toArray();
+  return collections
+    .map((entry) => entry.name)
+    .filter((name) => name && !name.startsWith("system."));
 }
 
 async function backupCollections(oldConn, collections) {
@@ -34,7 +40,33 @@ async function backupCollections(oldConn, collections) {
     const file = path.join(dir, `${name}.json`);
     await fs.writeFile(file, JSON.stringify(docs, null, 2));
     console.log(`Backup written: ${file} (${docs.length} docs)`);
+    }
+}
+
+async function mergeDocuments(targetCollection, docs) {
+  const operations = docs.map((doc) => {
+    if (doc && doc._id) {
+      return {
+        replaceOne: {
+          filter: { _id: doc._id },
+          replacement: doc,
+          upsert: true,
+        },
+      };
+    }
+
+    return {
+      insertOne: {
+        document: doc,
+      },
+    };
+  });
+
+  if (!operations.length) {
+    return { upsertedCount: 0, modifiedCount: 0, insertedCount: 0 };
   }
+
+  return targetCollection.bulkWrite(operations, { ordered: false });
 }
 
 async function migrate() {
@@ -46,24 +78,41 @@ async function migrate() {
   const newConn = await mongoose.createConnection(NEW_URI).asPromise();
 
   try {
-    if (MODE === "overwrite") {
-      console.log("Creating safety backup before overwrite...");
-      await backupCollections(oldConn, COLLECTIONS);
+    const collections = await getCollectionNames(oldConn);
+    if (!collections.length) {
+      throw new Error("No collections found in the old database.");
     }
 
-    for (const name of COLLECTIONS) {
+    if (MODE === "overwrite") {
+      console.log("Creating safety backup before overwrite...");
+      await backupCollections(oldConn, collections);
+    }
+
+    console.log(`Collections to migrate: ${collections.join(", ")}`);
+
+    for (const name of collections) {
       const docs = await oldConn.collection(name).find({}).toArray();
       if (!docs.length) {
         console.log(`Skipping ${name} (0 docs)`);
         continue;
       }
 
+      const targetCollection = newConn.collection(name);
+
       if (MODE === "overwrite") {
-        await newConn.collection(name).deleteMany({});
+        await targetCollection.deleteMany({});
+        await targetCollection.insertMany(docs, { ordered: false });
+        console.log(`Migrated ${docs.length} docs into ${name} (overwrite)`);
+        continue;
       }
 
-      await newConn.collection(name).insertMany(docs, { ordered: false });
-      console.log(`Migrated ${docs.length} docs into ${name}`);
+      const result = await mergeDocuments(targetCollection, docs);
+      const insertedCount = result.insertedCount || 0;
+      const upsertedCount = result.upsertedCount || 0;
+      const modifiedCount = result.modifiedCount || 0;
+      console.log(
+        `Migrated ${docs.length} docs into ${name} (merge: inserted ${insertedCount}, upserted ${upsertedCount}, updated ${modifiedCount})`
+      );
     }
   } finally {
     await oldConn.close();

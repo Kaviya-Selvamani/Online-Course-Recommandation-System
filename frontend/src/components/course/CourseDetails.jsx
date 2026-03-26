@@ -21,6 +21,17 @@ function resolveAccent(category) {
   return { bg: "var(--bg-api)", emoji: "CS" };
 }
 
+function formatEnrollmentDate(value) {
+  if (!value) return "Unknown date";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown date";
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export default function CourseDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -75,6 +86,7 @@ export default function CourseDetails() {
   const accent = resolveAccent(course?.category);
   const providerName = course?.provider || course?.platform || "Course Provider";
   const prerequisites = course?.prerequisites || [];
+  const enrollmentRoster = course?.enrollmentRoster || [];
   const canExplain = Boolean(course?.scoreBreakdown?.length || course?.scores);
 
   const breakdownItems = useMemo(() => {
@@ -261,6 +273,45 @@ export default function CourseDetails() {
               Duration: <strong style={{ color: "var(--ac)" }}>{course.duration || "Self-paced"}</strong> · Language:{" "}
               <strong style={{ color: "var(--t)" }}>{course.language || "English"}</strong>
             </div>
+          </div>
+          <div className="cd-section">
+            <div className="cd-stitle">Enrollment Roster</div>
+            {enrollmentRoster.length === 0 ? (
+              <div style={{ fontSize: 13, color: "var(--t3)" }}>
+                No learners have enrolled in this course yet.
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: 10 }}>
+                {enrollmentRoster.map((entry) => (
+                  <div
+                    key={entry.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 12,
+                      flexWrap: "wrap",
+                      padding: 12,
+                      border: "1px solid var(--bd)",
+                      borderRadius: 14,
+                      background: "rgba(255,255,255,0.02)",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "var(--t)" }}>
+                        {entry.learner?.name || "Unknown learner"}
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--t3)" }}>
+                        {entry.learner?.role || "Learner"}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--t2)", textAlign: "right" }}>
+                      <div>Enrolled: {formatEnrollmentDate(entry.enrolledAt)}</div>
+                      <div>Status: {entry.status || "enrolled"}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

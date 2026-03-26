@@ -1,21 +1,51 @@
 import { motion as Motion } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { fetchCoursesCatalog } from "../services/courseService.js";
 import { useUiStore } from "../store/ui.js";
-import { COURSES } from "../data/courseiq1.js";
 
 export default function Roadmap() {
   const navigate = useNavigate();
   const enrolledIds = useUiStore((s) => s.enrolledCourses) || [];
-  const enrolledCourses = enrolledIds
-    .map((id) => {
-      const known = COURSES.find((c) => String(c.id) === String(id));
-      if (known) return known;
-      return {
-        id,
-        title: "Enrolled Course",
-        tags: ["In Progress"],
-      };
-    });
+  const [catalogCourses, setCatalogCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchCoursesCatalog()
+      .then((data) => {
+        if (!cancelled) {
+          setCatalogCourses(Array.isArray(data) ? data : []);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCatalogCourses([]);
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const enrolledCourses = useMemo(
+    () =>
+      enrolledIds.map((id) => {
+        const known = catalogCourses.find((course) => String(course._id) === String(id));
+        if (known) return known;
+        return {
+          _id: id,
+          title: "Enrolled Course",
+          tags: ["In Progress"],
+        };
+      }),
+    [catalogCourses, enrolledIds]
+  );
+
   if (enrolledCourses.length === 0) {
     return (
       <div className="page anim">
@@ -52,7 +82,7 @@ export default function Roadmap() {
     courses: (course.tags && course.tags.length ? course.tags : [course.title || "In Progress"]),
     done: false,
     active: index === 0,
-    courseId: course.id,
+    courseId: course._id,
     skills: (course.tags || []).slice(0, 3),
   }));
   const totalPhases = phases.length;
@@ -81,7 +111,7 @@ export default function Roadmap() {
 
   const resolvePhaseCourse = (phase) => {
     if (phase.courseId) {
-      const byId = COURSES.find((course) => String(course.id) === String(phase.courseId));
+      const byId = catalogCourses.find((course) => String(course._id) === String(phase.courseId));
       if (byId) return byId;
     }
 
@@ -89,7 +119,7 @@ export default function Roadmap() {
     let best = null;
     let bestScore = 0;
 
-    COURSES.forEach((course) => {
+    catalogCourses.forEach((course) => {
       const title = normalizeText(course.title);
       const titleTokens = buildTokens(course.title);
 
@@ -115,8 +145,8 @@ export default function Roadmap() {
       window.open(course.courseUrl, "_blank", "noopener,noreferrer");
       return;
     }
-    if (course?.id) {
-      navigate(`/course/${course.id}`);
+    if (course?._id) {
+      navigate(`/course/${course._id}`);
       return;
     }
     navigate("/courses");
@@ -124,8 +154,8 @@ export default function Roadmap() {
 
   const handleViewDetails = (phase) => {
     const course = resolvePhaseCourse(phase);
-    if (course?.id) {
-      navigate(`/course/${course.id}`);
+    if (course?._id) {
+      navigate(`/course/${course._id}`);
       return;
     }
     navigate("/courses");
@@ -137,6 +167,8 @@ export default function Roadmap() {
         <div className="pt">Learning Roadmap</div>
         <div className="ps">Your personalized path to ML Engineer · {progressPercent}% complete</div>
       </div>
+
+      {loading ? <div className="empty-state">Loading roadmap...</div> : null}
 
       <Motion.div
         className="card roadmap-progress-card glass-card"

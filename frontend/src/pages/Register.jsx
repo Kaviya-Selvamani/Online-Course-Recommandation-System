@@ -28,6 +28,8 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
   const [err, setErr] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [existingAccountEmail, setExistingAccountEmail] = useState("");
   const [interests, setInterests] = useState(["Machine Learning", "Python"]);
   const [skill, setSkill] = useState("Intermediate");
   const [goal, setGoal] = useState("ML Engineer");
@@ -59,7 +61,32 @@ export default function Register() {
     return "";
   };
 
+  const getRegistrationErrorMessage = (error, normalizedEmail) => {
+    const status = error.response?.status;
+    const serverMessage = error.response?.data?.error;
+
+    if (status === 409) {
+      setExistingAccountEmail(normalizedEmail);
+      return "An account already exists with this email. Sign in instead.";
+    }
+
+    setExistingAccountEmail("");
+
+    if (serverMessage) {
+      return serverMessage;
+    }
+    if (!error.response) {
+      return "Unable to reach the server right now. Please try again in a moment.";
+    }
+
+    return "Registration failed.";
+  };
+
   const finish = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
     if (getSession()) {
       logout();
     }
@@ -71,11 +98,14 @@ export default function Register() {
       return;
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
     setErr("");
+    setExistingAccountEmail("");
+    setIsSubmitting(true);
     try {
       await serverRegister({
         name: name.trim(),
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
         password: pass,
         role: "student",
         adminId: null,
@@ -86,8 +116,10 @@ export default function Register() {
       });
       navigate("/dashboard", { replace: true });
     } catch (error) {
-      console.error("Registration error:", error);
-      setErr(error.response?.data?.error || "Registration failed.");
+      setStep(1);
+      setErr(getRegistrationErrorMessage(error, normalizedEmail));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -119,7 +151,16 @@ export default function Register() {
             </div>
             <div className="fg">
               <label className="fl">Email</label>
-              <input className="fi" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@university.edu" />
+              <input
+                className="fi"
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setExistingAccountEmail("");
+                }}
+                placeholder="you@university.edu"
+              />
             </div>
             <div className="fg">
               <label className="fl">Password</label>
@@ -234,18 +275,28 @@ export default function Register() {
                 }
               }
               setErr("");
+              setExistingAccountEmail("");
               setStep((s) => s + 1);
               return;
             }
             finish();
           }}
+          disabled={isSubmitting}
         >
-          {step < 4 ? "Continue →" : "Launch My Dashboard"}
+          {isSubmitting ? "Creating Account..." : step < 4 ? "Continue →" : "Launch My Dashboard"}
         </button>
 
         {step > 1 ? (
           <div className="auth-link">
             <span onClick={() => setStep((s) => s - 1)}>← Back</span>
+          </div>
+        ) : null}
+
+        {existingAccountEmail ? (
+          <div className="auth-link">
+            <Link to="/login" state={{ email: existingAccountEmail }} style={{ color: "var(--ac)", fontWeight: 600 }}>
+              Sign in with {existingAccountEmail}
+            </Link>
           </div>
         ) : null}
 
