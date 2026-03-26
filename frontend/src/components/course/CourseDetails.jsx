@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { COURSES, calcScore, getMatch } from "../../data/courseiq1.js";
-import { enrollCourse } from "../../services/courseService.js";
+import { enrollCourse, unenrollCourse } from "../../services/courseService.js";
+import FeedbackModal from "./FeedbackModal.jsx";
 import { useUiStore } from "../../store/ui.js";
 
 export default function CourseDetails() {
@@ -14,11 +15,19 @@ export default function CourseDetails() {
   const sel = COURSES.find((c) => c.id === courseId) || null;
 
   const [bar, setBar] = useState(false);
+  const [enrollmentCount, setEnrollmentCount] = useState(sel?.enrollments || 0);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [ratingOverride, setRatingOverride] = useState(sel?.rating || 0);
   useEffect(() => {
     if (sel) {
       const t = setTimeout(() => setBar(true), 120);
       return () => clearTimeout(t);
     }
+  }, [sel]);
+
+  useEffect(() => {
+    setEnrollmentCount(sel?.enrollments || 0);
+    setRatingOverride(sel?.rating || 0);
   }, [sel]);
 
   if (!sel) {
@@ -61,10 +70,10 @@ export default function CourseDetails() {
           <div className="cd-title">{sel.title}</div>
           <div className="cd-meta-row">
             <span className={"bdg bdg-" + sel.difficulty.charAt(0).toLowerCase()}>{sel.difficulty}</span>
-            <span style={{ fontSize: 13, color: "var(--t2)" }}>⭐ {sel.rating}</span>
+            <span style={{ fontSize: 13, color: "var(--t2)" }}>⭐ {Number(ratingOverride || sel.rating || 0).toFixed(1)}</span>
             <span className="tg">{sel.category}</span>
             <span style={{ fontSize: 12, color: "var(--t3)" }}>
-              {sel.enrollments.toLocaleString()} enrolled · {sel.seats} seats left
+              {enrollmentCount.toLocaleString()} enrolled · {sel.seats} seats left
             </span>
           </div>
           <div style={{ fontSize: 13, color: "var(--t2)", lineHeight: 1.6, marginBottom: 14 }}>{sel.desc}</div>
@@ -73,19 +82,36 @@ export default function CourseDetails() {
               className="btn bp"
               style={
                 isEnrolled
-                  ? { background: "var(--ac2)", color: "#fff", border: "1px solid var(--ac)" }
+                  ? { background: "#c0392b", color: "#fff", border: "1px solid #a93226" }
                   : { background: "var(--ac)", color: "#fff", border: "1px solid var(--ac)" }
               }
-              disabled={isEnrolled}
               onClick={async () => {
                 try {
+                  if (isEnrolled) {
+                    await unenrollCourse(sel.id);
+                    setEnrollmentCount((prev) => Math.max(0, prev - 1));
+                    return;
+                  }
                   await enrollCourse(sel.id);
+                  setEnrollmentCount((prev) => prev + 1);
                 } catch (err) {
-                  alert(err.response?.data?.error || err.message || "Failed to enroll.");
+                  alert(err.response?.data?.error || err.message || "Failed to update enrollment.");
                 }
               }}
             >
-              {isEnrolled ? "Enrolled" : "Enroll Now"}
+              {isEnrolled ? "Unenroll" : "Enroll Now"}
+            </button>
+            <button
+              className="btn bg"
+              onClick={() => {
+                if (!sel?._id) {
+                  alert("Feedback is available only for live catalog courses.");
+                  return;
+                }
+                setFeedbackOpen(true);
+              }}
+            >
+              Rate Course
             </button>
             <button className="btn bg" onClick={() => openExplain(sel)}>
               Explain Match
@@ -188,6 +214,18 @@ export default function CourseDetails() {
           </div>
         </div>
       </div>
+
+      {feedbackOpen ? (
+        <FeedbackModal
+          course={sel}
+          onClose={() => setFeedbackOpen(false)}
+          onSubmitted={(data) => {
+            if (data?.courseRating) {
+              setRatingOverride(data.courseRating);
+            }
+          }}
+        />
+      ) : null}
     </div>
   );
 }

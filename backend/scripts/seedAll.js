@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import { fileURLToPath } from "url";
 import User from "../models/User.js";
 import Course from "../models/Course.js";
 import Enrollment from "../models/Enrollment.js";
@@ -8,16 +9,14 @@ import Recommendation from "../models/Recommendation.js";
 
 dotenv.config();
 
-const shouldClear = process.env.SEED_CLEAR === "true";
-
-async function seed() {
+export async function seedAll({ clear = false } = {}) {
   if (!process.env.MONGO_URI) {
     throw new Error("MONGO_URI is missing in environment.");
   }
 
   await mongoose.connect(process.env.MONGO_URI);
 
-  if (shouldClear) {
+  if (clear) {
     await Promise.all([
       User.deleteMany(),
       Course.deleteMany(),
@@ -136,7 +135,11 @@ async function seed() {
   await mongoose.disconnect();
 }
 
-seed().catch((err) => {
-  console.error("Seed failed:", err);
-  process.exit(1);
-});
+const isDirectRun = process.argv[1] === fileURLToPath(import.meta.url);
+if (isDirectRun) {
+  const shouldClear = process.env.SEED_CLEAR === "true";
+  seedAll({ clear: shouldClear }).catch((err) => {
+    console.error("Seed failed:", err);
+    process.exit(1);
+  });
+}
