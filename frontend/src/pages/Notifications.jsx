@@ -61,9 +61,6 @@ export default function Notifications() {
                                     <div className="cl-name" style={{ fontWeight: n.unread ? 700 : 500 }}>{n.title}</div>
                                     <div style={{ fontSize: 11, color: 'var(--t3)' }}>{n.time}</div>
                                 </div>
-                                <div className="cl-meta" style={{ marginTop: 4, color: n.unread ? 'var(--t)' : 'var(--t2)' }}>
-                                    {n.desc}
-                                </div>
                             </div>
                         </div>
                     ))

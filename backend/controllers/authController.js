@@ -155,6 +155,7 @@ function buildUserPayload(user, includeToken = false) {
     name: user.name,
     email: user.email,
     role: user.role,
+    avatarUrl: user.avatarUrl || "",
     skillLevel: normalizeDifficulty(user.skillLevel, preferredDifficultyLevel),
     interests: user.interests,
     careerGoal: user.careerGoal || careerTarget,
@@ -440,6 +441,7 @@ export async function updateProfile(req, res) {
       careerGoal,
       careerTarget,
       learningGoal,
+      avatarUrl,
       weeklyLearningHours,
       completedCourses,
       preferredPlatforms,
@@ -491,6 +493,10 @@ export async function updateProfile(req, res) {
 
     if (learningGoal !== undefined) {
       user.learningGoal = normalizeName(learningGoal);
+    }
+
+    if (avatarUrl !== undefined) {
+      user.avatarUrl = String(avatarUrl || "").trim();
     }
 
     if (completedCourses !== undefined) {

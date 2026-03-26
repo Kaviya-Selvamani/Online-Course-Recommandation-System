@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getSession } from "../services/authService.js";
 import { fetchCoursesCatalog } from "../services/courseService.js";
 import { fetchRecommendations } from "../services/recommendationService.js";
@@ -16,6 +17,7 @@ const DEFAULT_SKILLS = {
 export default function Profile() {
   const session = getSession();
   const user = useMemo(() => session?.user || {}, [session]);
+  const navigate = useNavigate();
   const enrolledCourses = useUiStore((state) => state.enrolledCourses);
   const [recommendations, setRecommendations] = useState([]);
   const [catalogCourses, setCatalogCourses] = useState([]);
@@ -75,6 +77,7 @@ export default function Profile() {
 
   const name = user.name || "Learner";
   const email = user.email || "student@courseiq.ai";
+  const avatarUrl = user.avatarUrl || "";
   const skillLevel =
     user.learningPreferences?.preferredDifficultyLevel || user.skillLevel || user.skill || "Intermediate";
   const careerTarget = user.careerTarget || user.goal || user.careerGoal || "Machine Learning Engineer";
@@ -87,7 +90,16 @@ export default function Profile() {
   return (
     <div className="page anim">
       <div className="profile-header glass-card">
-        <div className="profile-av">{name[0]}</div>
+        <div
+          className="profile-av"
+          style={
+            avatarUrl
+              ? { backgroundImage: `url(${avatarUrl})`, backgroundSize: "cover", backgroundPosition: "center", color: "transparent" }
+              : undefined
+          }
+        >
+          {name[0]}
+        </div>
         <div style={{ flex: 1 }}>
           <div className="profile-name">{name}</div>
           <div className="profile-sub">
@@ -99,7 +111,7 @@ export default function Profile() {
             ))}
           </div>
         </div>
-        <button className="btn bg">Settings Updated</button>
+        <button className="btn bg" onClick={() => navigate("/settings")}>Edit Profile</button>
       </div>
 
       <div className="g2">

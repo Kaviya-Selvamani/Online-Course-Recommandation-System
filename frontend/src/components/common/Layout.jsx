@@ -64,6 +64,7 @@ export default function CourseIQLayout({ requireRole }) {
 
   const firstName = user?.name?.split?.(" ")?.[0] || "User";
   const userInitial = user?.name?.[0] || "U";
+  const avatarUrl = user?.avatarUrl || "";
 
   return (
     <>
@@ -108,7 +109,16 @@ export default function CourseIQLayout({ requireRole }) {
                 if (activeRole === "student") navigate("/profile");
               }}
             >
-              <div className="sb-av">{userInitial}</div>
+              <div
+                className="sb-av"
+                style={
+                  avatarUrl
+                    ? { backgroundImage: `url(${avatarUrl})`, backgroundSize: "cover", backgroundPosition: "center", color: "transparent" }
+                    : undefined
+                }
+              >
+                {userInitial}
+              </div>
               <div>
                 <div className="sb-uname">{user?.name || "User"}</div>
                 <div className="sb-urole">
@@ -150,7 +160,21 @@ export default function CourseIQLayout({ requireRole }) {
                 type="button"
                 style={{ cursor: activeRole === "student" ? "pointer" : "default" }}
               >
-                {userInitial}
+                {avatarUrl ? (
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: "100%",
+                      height: "100%",
+                      borderRadius: "50%",
+                      backgroundImage: `url(${avatarUrl})`,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                    }}
+                  />
+                ) : (
+                  userInitial
+                )}
               </button>
             </div>
           </header>

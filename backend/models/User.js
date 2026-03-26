@@ -44,6 +44,9 @@ const userSchema = mongoose.Schema({
         trim: true,
         lowercase: true,
     },
+    avatarUrl: {
+        type: String,
+    },
     emailVerified: {
         type: Boolean,
         default: true,
