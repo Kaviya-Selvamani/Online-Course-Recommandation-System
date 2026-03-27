@@ -167,15 +167,16 @@ export const useUiStore = create((set, get) => ({
     }),
 
   upsertNotifications: (notifs) =>
-    set((state) => {
+    {
+      const state = get();
       const merged = mergeNotifications(state.notifs, notifs);
       if (areNotificationsEqual(state.notifs, merged)) {
-        return {};
+        return;
       }
       const next = { ...state, notifs: merged };
       persistUiState(next);
-      return { notifs: merged };
-    }),
+      set({ notifs: merged });
+    },
 
   markNotifRead: (id) =>
     set((state) => {

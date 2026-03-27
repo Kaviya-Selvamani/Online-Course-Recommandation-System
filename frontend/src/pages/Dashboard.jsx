@@ -94,11 +94,16 @@ export default function Dashboard() {
       }),
     [bookmarkedCourseIds, courses, enrolledCourses, user],
   );
+  const notificationSignature = JSON.stringify(experience.notifications);
+  const stableNotifications = useMemo(
+    () => JSON.parse(notificationSignature),
+    [notificationSignature],
+  );
 
   useEffect(() => {
     if (!courses.length) return;
-    upsertNotifications(experience.notifications);
-  }, [courses.length, experience.notifications, upsertNotifications]);
+    upsertNotifications(stableNotifications);
+  }, [courses.length, stableNotifications, upsertNotifications]);
 
   const filteredCourses = useMemo(() => {
     if (filter === "perfect") return courses.filter((course) => course.relevanceScore >= 90);
