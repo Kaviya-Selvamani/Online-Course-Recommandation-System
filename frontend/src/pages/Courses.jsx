@@ -56,6 +56,7 @@ export default function Courses() {
   const [view, setView] = useState("all");
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const enrolledCourses = useUiStore((state) => state.enrolledCourses);
   const bookmarkedCourseIds = useUiStore((state) => state.bookmarkedCourseIds);
   const addBookmarkId = useUiStore((state) => state.addBookmarkId);
@@ -74,12 +75,14 @@ export default function Courses() {
       .then((data) => {
         if (!cancelled) {
           setCourses(Array.isArray(data) ? data : []);
+          setError("");
           setLoading(false);
         }
       })
-      .catch(() => {
+      .catch((err) => {
         if (!cancelled) {
           setCourses([]);
+          setError(err.response?.data?.error || "Failed to load courses.");
           setLoading(false);
         }
       });
@@ -204,8 +207,9 @@ export default function Courses() {
       </div>
 
       {loading ? <div className="empty-state">Loading courses...</div> : null}
+      {!loading && error ? <div className="empty-state error">{error}</div> : null}
 
-      <div className="g3">
+      {!error ? <div className="g3">
         {visibleCourses.map((course) => {
           const score = getCatalogScore(course);
           const meta = getMatch(score);
@@ -325,9 +329,9 @@ export default function Courses() {
             </div>
           );
         })}
-      </div>
+      </div> : null}
 
-      {!loading && visibleCourses.length === 0 ? (
+      {!loading && !error && visibleCourses.length === 0 ? (
         <div className="empty-state">
           {view === "enrolled"
             ? enrolledCourses.length === 0

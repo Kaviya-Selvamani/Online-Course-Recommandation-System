@@ -24,7 +24,12 @@ const app = express();
 // Middleware
 // Allow local dev by default; override in production via CORS_ORIGINS (comma-separated).
 // Supports "*" to allow any origin (useful for quick troubleshooting).
-const defaultOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+const defaultOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'https://online-course-recommandation-system.vercel.app',
+  '*.vercel.app',
+];
 const configuredOrigins = (process.env.CORS_ORIGINS || '')
   .split(',')
   .map((o) => o.trim())
