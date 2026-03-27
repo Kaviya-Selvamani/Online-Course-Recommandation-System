@@ -104,7 +104,7 @@ export default function AdminDashboard() {
       {error ? <div className="card" style={{ padding: 16 }}>{error}</div> : null}
 
       <div className="grid gap-5 lg:grid-cols-2" style={{ marginBottom: 20 }}>
-        <div className="card admin-card">
+        <div className="card admin-card" style={{ minWidth: 0 }}>
           <div className="admin-card-title">Active User Analytics</div>
           {loading ? (
             <div className="activity-empty">Loading chart...</div>
@@ -113,7 +113,7 @@ export default function AdminDashboard() {
           )}
         </div>
 
-        <div className="card admin-card">
+        <div className="card admin-card" style={{ minWidth: 0 }}>
           <div className="admin-card-title">Top Course Performance</div>
           {loading ? (
             <div className="activity-empty">Loading chart...</div>

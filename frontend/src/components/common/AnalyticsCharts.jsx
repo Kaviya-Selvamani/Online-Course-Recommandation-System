@@ -222,8 +222,8 @@ export function SkillGrowthTrendChart({ data = [], legend = [] }) {
   const colors = ["#34d399", "#60a5fa", "#f59e0b"];
 
   return (
-    <div style={{ width: "100%", height: 280 }}>
-      <ResponsiveContainer>
+    <div style={{ width: "100%", minWidth: 0, height: 280, minHeight: 280 }}>
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={280} debounce={120}>
         <AreaChart data={data} margin={{ top: 12, right: 12, left: -18, bottom: 0 }}>
           <defs>
             {legend.map((item, index) => (
@@ -266,8 +266,8 @@ export function AdminPerformanceChart({ data = [], valueKey = "value", color = "
   }
 
   return (
-    <div style={{ width: "100%", height: 260 }}>
-      <ResponsiveContainer>
+    <div style={{ width: "100%", minWidth: 0, height: 260, minHeight: 260 }}>
+      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={260} debounce={120}>
         <ReBarChart data={data} margin={{ top: 12, right: 12, left: -22, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.15)" />
           <XAxis dataKey="label" stroke="rgba(148, 163, 184, 0.75)" fontSize={12} />

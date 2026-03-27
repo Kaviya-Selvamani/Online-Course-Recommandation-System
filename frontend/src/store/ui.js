@@ -74,6 +74,24 @@ function mergeNotifications(existing = [], incoming = []) {
   });
 }
 
+function areNotificationsEqual(left = [], right = []) {
+  if (left.length !== right.length) return false;
+
+  return left.every((notif, index) => {
+    const other = right[index];
+    return (
+      String(notif.id) === String(other?.id) &&
+      notif.title === other?.title &&
+      notif.desc === other?.desc &&
+      notif.time === other?.time &&
+      notif.unread === other?.unread &&
+      notif.createdAt === other?.createdAt &&
+      notif.icon === other?.icon &&
+      notif.bg === other?.bg
+    );
+  });
+}
+
 const stored = readStoredUiState();
 
 export const useUiStore = create((set, get) => ({
@@ -151,6 +169,9 @@ export const useUiStore = create((set, get) => ({
   upsertNotifications: (notifs) =>
     set((state) => {
       const merged = mergeNotifications(state.notifs, notifs);
+      if (areNotificationsEqual(state.notifs, merged)) {
+        return {};
+      }
       const next = { ...state, notifs: merged };
       persistUiState(next);
       return { notifs: merged };

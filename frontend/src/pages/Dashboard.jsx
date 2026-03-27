@@ -219,12 +219,13 @@ export default function Dashboard() {
         </Motion.div>
 
         <div className="space-y-5">
-          <Motion.div
-            className="rounded-[30px] border border-slate-800/70 bg-slate-900/80 p-6"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.24, delay: 0.04 }}
-          >
+        <Motion.div
+          className="rounded-[30px] border border-slate-800/70 bg-slate-900/80 p-6"
+          style={{ minWidth: 0 }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.24, delay: 0.04 }}
+        >
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-300">Skill Growth</div>
@@ -232,7 +233,7 @@ export default function Dashboard() {
               </div>
               <div className="text-sm text-slate-400">{experience.completionPercent}% roadmap completion</div>
             </div>
-            <div className="mt-4">
+            <div className="mt-4" style={{ minWidth: 0 }}>
               <SkillGrowthTrendChart
                 data={experience.skillGrowthTimeline}
                 legend={experience.skillGrowthLegend}

@@ -226,7 +226,12 @@ export function buildLearningExperience({
   ];
 
   const highestMilestone = completionPercent >= 75 ? 75 : completionPercent >= 50 ? 50 : completionPercent >= 25 ? 25 : 0;
-  const now = new Date().toISOString();
+  const stableTimestamp =
+    user?.lastActivityAt ||
+    user?.lastLoginAt ||
+    user?.updatedAt ||
+    user?.createdAt ||
+    "2026-01-01T00:00:00.000Z";
   const notifications = [
     {
       id: "notif-recommendation-refresh",
@@ -237,7 +242,7 @@ export function buildLearningExperience({
         ? `${recommendations[0].title} is your strongest match at ${Math.round(recommendations[0].matchPercentage || recommendations[0].relevanceScore || 0)}%.`
         : "Fresh recommendations are ready based on your current profile.",
       time: "Today",
-      createdAt: now,
+      createdAt: stableTimestamp,
     },
     {
       id: "notif-inactivity-watch",
@@ -248,7 +253,7 @@ export function buildLearningExperience({
         ? "You are close to losing momentum. Continue one roadmap step to protect your streak."
         : `You have a ${streakDays}-day learning streak. Keep it going with your active course.`,
       time: streakDays <= 4 ? "Needs attention" : "Today",
-      createdAt: now,
+      createdAt: stableTimestamp,
     },
     highestMilestone
       ? {
@@ -258,7 +263,7 @@ export function buildLearningExperience({
           title: `${highestMilestone}% progress milestone reached`,
           desc: `Your roadmap completion is now at ${completionPercent}%. You're moving steadily toward the next badge.`,
           time: "Today",
-          createdAt: now,
+          createdAt: stableTimestamp,
         }
       : null,
   ].filter(Boolean);
