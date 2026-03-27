@@ -1,6 +1,6 @@
 import Tag from "../common/Tag.jsx";
 
-export default function ProfileHeader({ name, email, avatarUrl, joinedDate, bio, skillLevel, careerTarget, onEdit }) {
+export default function ProfileHeader({ name, email, avatarUrl, joinedDate, bio, skillLevel, careerTarget, level, xp, onEdit }) {
   return (
     <div className="rounded-3xl border border-slate-800/70 bg-slate-900/70 p-6 shadow-sm">
       <div className="flex flex-wrap items-center gap-5">
@@ -25,6 +25,7 @@ export default function ProfileHeader({ name, email, avatarUrl, joinedDate, bio,
           <div className="mt-3 flex flex-wrap gap-2">
             {skillLevel ? <Tag>{skillLevel}</Tag> : null}
             {careerTarget ? <Tag>{careerTarget}</Tag> : null}
+            {level ? <Tag>Level {level} · {xp} XP</Tag> : null}
             {joinedDate ? <Tag>Joined {joinedDate}</Tag> : null}
           </div>
         </div>

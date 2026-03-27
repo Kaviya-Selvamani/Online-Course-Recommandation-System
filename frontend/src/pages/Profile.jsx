@@ -4,6 +4,7 @@ import { getSession } from "../services/authService.js";
 import { fetchCoursesCatalog } from "../services/courseService.js";
 import { fetchRecommendations } from "../services/recommendationService.js";
 import { buildLearningInsights } from "../services/learningInsights.js";
+import { buildLearningExperience } from "../services/experienceService.js";
 import { useUiStore } from "../store/ui.js";
 
 import ProfileHeader from "../components/profile/ProfileHeader.jsx";
@@ -24,6 +25,7 @@ export default function Profile() {
   const session = getSession();
   const user = useMemo(() => session?.user || {}, [session]);
   const enrolledCourses = useUiStore((state) => state.enrolledCourses || []);
+  const bookmarkedCourseIds = useUiStore((state) => state.bookmarkedCourseIds || []);
 
   const [recommendations, setRecommendations] = useState([]);
   const [catalogCourses, setCatalogCourses] = useState([]);
@@ -63,6 +65,17 @@ export default function Profile() {
   const insights = useMemo(
     () => buildLearningInsights(user, recommendations, enrolledCourses),
     [user, recommendations, enrolledCourses]
+  );
+  const experience = useMemo(
+    () =>
+      buildLearningExperience({
+        user,
+        recommendations,
+        catalogCourses,
+        enrolledCourseIds: enrolledCourses,
+        bookmarkedCourseIds,
+      }),
+    [bookmarkedCourseIds, catalogCourses, enrolledCourses, recommendations, user],
   );
 
   const enrolledMap = useMemo(() => {
@@ -127,6 +140,8 @@ export default function Profile() {
           bio={bio}
           skillLevel={skillLevel}
           careerTarget={careerTarget}
+          level={experience.level}
+          xp={experience.xp}
           onEdit={() => navigate("/settings")}
         />
 
@@ -135,6 +150,8 @@ export default function Profile() {
           completedCount={completedCount}
           inProgressCount={inProgressCount}
           progressPercent={progressPercent}
+          level={experience.level}
+          streakDays={experience.streakDays}
         />
 
         <div className="grid gap-6 lg:grid-cols-3">

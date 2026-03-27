@@ -1,75 +1,202 @@
-import { create } from 'zustand'
-import { getSession } from '../services/session.js'
+import { create } from "zustand";
+import { getSession } from "../services/session.js";
 
-export const useUiStore = create((set) => ({
+const UI_STORAGE_KEY = "courseiq_ui_state";
+
+function readStoredUiState() {
+  if (typeof window === "undefined") {
+    return {
+      bookmarkedCourseIds: [],
+      notifs: [],
+      hasNewRecs: true,
+    };
+  }
+
+  try {
+    const raw = window.localStorage.getItem(UI_STORAGE_KEY);
+    if (!raw) {
+      return {
+        bookmarkedCourseIds: [],
+        notifs: [],
+        hasNewRecs: true,
+      };
+    }
+
+    const parsed = JSON.parse(raw);
+    return {
+      bookmarkedCourseIds: Array.isArray(parsed.bookmarkedCourseIds)
+        ? parsed.bookmarkedCourseIds.map((id) => String(id))
+        : [],
+      notifs: Array.isArray(parsed.notifs) ? parsed.notifs : [],
+      hasNewRecs: parsed.hasNewRecs !== false,
+    };
+  } catch {
+    return {
+      bookmarkedCourseIds: [],
+      notifs: [],
+      hasNewRecs: true,
+    };
+  }
+}
+
+function persistUiState(state) {
+  if (typeof window === "undefined") return;
+
+  const payload = {
+    bookmarkedCourseIds: state.bookmarkedCourseIds || [],
+    notifs: state.notifs || [],
+    hasNewRecs: state.hasNewRecs !== false,
+  };
+
+  window.localStorage.setItem(UI_STORAGE_KEY, JSON.stringify(payload));
+}
+
+function mergeNotifications(existing = [], incoming = []) {
+  const merged = new Map(
+    existing.map((notif) => [String(notif.id), notif]),
+  );
+
+  incoming.forEach((notif) => {
+    const id = String(notif.id);
+    const previous = merged.get(id);
+    merged.set(id, {
+      ...previous,
+      ...notif,
+      id,
+      unread: previous ? previous.unread : notif.unread !== false,
+    });
+  });
+
+  return Array.from(merged.values()).sort((left, right) => {
+    const leftTime = new Date(left.createdAt || 0).getTime();
+    const rightTime = new Date(right.createdAt || 0).getTime();
+    return rightTime - leftTime;
+  });
+}
+
+const stored = readStoredUiState();
+
+export const useUiStore = create((set, get) => ({
   enrolledCourses: getSession()?.user?.enrolledCourses || [],
-  setEnrolledCourses: (courses) => set({ enrolledCourses: courses }),
+  bookmarkedCourseIds: stored.bookmarkedCourseIds,
   selectedCourse: null,
+  hasNewRecs: stored.hasNewRecs,
+  notifs: stored.notifs,
+
+  setEnrolledCourses: (courses) => set({
+    enrolledCourses: Array.isArray(courses) ? courses.map((id) => String(id)) : [],
+  }),
+
+  setBookmarkedCourseIds: (courseIds) =>
+    set((state) => {
+      const next = {
+        ...state,
+        bookmarkedCourseIds: Array.isArray(courseIds)
+          ? [...new Set(courseIds.map((id) => String(id)))]
+          : [],
+      };
+      persistUiState(next);
+      return { bookmarkedCourseIds: next.bookmarkedCourseIds };
+    }),
+
+  addBookmarkId: (courseId) =>
+    set((state) => {
+      const bookmarkedCourseIds = [...new Set([...state.bookmarkedCourseIds, String(courseId)])];
+      const next = { ...state, bookmarkedCourseIds };
+      persistUiState(next);
+      return { bookmarkedCourseIds };
+    }),
+
+  removeBookmarkId: (courseId) =>
+    set((state) => {
+      const bookmarkedCourseIds = state.bookmarkedCourseIds.filter(
+        (id) => String(id) !== String(courseId),
+      );
+      const next = { ...state, bookmarkedCourseIds };
+      persistUiState(next);
+      return { bookmarkedCourseIds };
+    }),
+
   openCourse: (course) => set({ selectedCourse: course }),
   closeCourse: () => set({ selectedCourse: null }),
 
-  // Recommendations state
-  hasNewRecs: true,
-  clearNewRecs: () => set({ hasNewRecs: false }),
+  clearNewRecs: () =>
+    set((state) => {
+      const next = { ...state, hasNewRecs: false };
+      persistUiState(next);
+      return { hasNewRecs: false };
+    }),
 
-  // Notifications state
-  notifs: [
-    {
-      id: 1,
-      icon: "🎯",
-      bg: "var(--adim)",
-      title: "New Perfect Fit Course",
-      desc: '"Deep Learning with PyTorch" matches 93% of your profile.',
-      time: "2 hours ago",
-      unread: true,
-    },
-    {
-      id: 2,
-      icon: "📈",
-      bg: "rgba(74,184,245,.1)",
-      title: "Relevance Score Improved",
-      desc: "Your learning alignment jumped to 84% — up 6% from last week.",
-      time: "Yesterday",
-      unread: true,
-    },
-    {
-      id: 3,
-      icon: "🔔",
-      bg: "rgba(240,160,48,.1)",
-      title: "Course Enrollment Closing",
-      desc: '"Cloud Architecture (AWS)" has only 3 seats left.',
-      time: "2 days ago",
-      unread: true,
-    },
-    {
-      id: 4,
-      icon: "✅",
-      bg: "rgba(24,201,138,.1)",
-      title: "Module Completed",
-      desc: "You completed Module 5 in Machine Learning Fundamentals. 68% done!",
-      time: "3 days ago",
-      unread: false,
-    },
-    {
-      id: 5,
-      icon: "🏆",
-      bg: "rgba(240,160,48,.1)",
-      title: "Achievement Unlocked",
-      desc: 'You earned the "Fast Learner" badge.',
-      time: "4 days ago",
-      unread: false,
-    },
-    {
-      id: 6,
-      icon: "💡",
-      bg: "rgba(74,184,245,.1)",
-      title: "Skill Gap Identified",
-      desc: "AI detected a gap in your Cloud knowledge. 2 courses recommended.",
-      time: "5 days ago",
-      unread: false,
-    },
-  ],
-  markNotifRead: (id) => set((s) => ({ notifs: s.notifs.map(n => n.id === id ? { ...n, unread: false } : n) })),
-  markAllNotifsRead: () => set((s) => ({ notifs: s.notifs.map(n => ({ ...n, unread: false })) })),
-  clearNotifs: () => set({ notifs: [] })
-}))
+  flagNewRecs: () =>
+    set((state) => {
+      const next = { ...state, hasNewRecs: true };
+      persistUiState(next);
+      return { hasNewRecs: true };
+    }),
+
+  pushNotif: (notif) =>
+    set((state) => {
+      const notifs = mergeNotifications(state.notifs, [
+        {
+          unread: true,
+          createdAt: notif.createdAt || new Date().toISOString(),
+          ...notif,
+        },
+      ]);
+      const next = { ...state, notifs };
+      persistUiState(next);
+      return { notifs };
+    }),
+
+  upsertNotifications: (notifs) =>
+    set((state) => {
+      const merged = mergeNotifications(state.notifs, notifs);
+      const next = { ...state, notifs: merged };
+      persistUiState(next);
+      return { notifs: merged };
+    }),
+
+  markNotifRead: (id) =>
+    set((state) => {
+      const notifs = state.notifs.map((notif) =>
+        String(notif.id) === String(id) ? { ...notif, unread: false } : notif,
+      );
+      const next = { ...state, notifs };
+      persistUiState(next);
+      return { notifs };
+    }),
+
+  markAllNotifsRead: () =>
+    set((state) => {
+      const notifs = state.notifs.map((notif) => ({ ...notif, unread: false }));
+      const next = { ...state, notifs };
+      persistUiState(next);
+      return { notifs };
+    }),
+
+  clearNotifs: () =>
+    set((state) => {
+      const next = { ...state, notifs: [] };
+      persistUiState(next);
+      return { notifs: [] };
+    }),
+
+  resetUiState: () =>
+    set(() => {
+      const next = {
+        bookmarkedCourseIds: [],
+        notifs: [],
+        hasNewRecs: true,
+      };
+      persistUiState(next);
+      return {
+        bookmarkedCourseIds: [],
+        notifs: [],
+        hasNewRecs: true,
+        enrolledCourses: [],
+        selectedCourse: null,
+      };
+    }),
+
+  getUnreadCount: () => get().notifs.filter((notif) => notif.unread).length,
+}));

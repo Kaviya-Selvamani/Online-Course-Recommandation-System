@@ -3,6 +3,7 @@ import { motion as Motion } from "framer-motion";
 import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import CourseIQMatchModal from "../course/CourseIQMatchModal.jsx";
 import { getSession, getTheme, logout, setTheme as persistTheme, refreshEnrolledCourses } from "../../services/authService.js";
+import { fetchBookmarks } from "../../services/courseService.js";
 import { FiZap, FiBook, FiTarget, FiUser, FiMap, FiBell, FiSettings, FiBarChart2, FiPlus, FiHeart, FiLogOut, FiSearch, FiSun, FiMoon } from "react-icons/fi";
 
 import { useUiStore } from "../../store/ui.js";
@@ -28,6 +29,13 @@ export default function CourseIQLayout({ requireRole }) {
   useEffect(() => {
     if (session) {
       refreshEnrolledCourses();
+      fetchBookmarks()
+        .then((data) => {
+          useUiStore.getState().setBookmarkedCourseIds(data.bookmarkIds || []);
+        })
+        .catch(() => {
+          useUiStore.getState().setBookmarkedCourseIds([]);
+        });
     }
   }, [session]);
 

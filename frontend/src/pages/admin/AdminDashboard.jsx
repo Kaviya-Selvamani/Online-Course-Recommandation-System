@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchAdminOverview } from "../../services/adminService.js";
+import { AdminPerformanceChart } from "../../components/common/AnalyticsCharts.jsx";
 
 function formatNumber(value) {
   if (value === null || value === undefined) return "—";
@@ -41,15 +42,15 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  const totals = overview?.totals || {};
-  const insights = overview?.courseInsights || {};
-  const optimization = overview?.recommendationOptimization || {};
-  const userActivity = overview?.userActivity || {};
-  const feedback = overview?.feedbackAnalysis || {};
-  const rankings = overview?.courseRankings || {};
-  const alerts = overview?.alerts || [];
-  const health = overview?.systemHealth || {};
-  const logs = overview?.logs || [];
+  const totals = useMemo(() => overview?.totals || {}, [overview]);
+  const insights = useMemo(() => overview?.courseInsights || {}, [overview]);
+  const optimization = useMemo(() => overview?.recommendationOptimization || {}, [overview]);
+  const userActivity = useMemo(() => overview?.userActivity || {}, [overview]);
+  const feedback = useMemo(() => overview?.feedbackAnalysis || {}, [overview]);
+  const rankings = useMemo(() => overview?.courseRankings || {}, [overview]);
+  const alerts = useMemo(() => overview?.alerts || [], [overview]);
+  const health = useMemo(() => overview?.systemHealth || {}, [overview]);
+  const logs = useMemo(() => overview?.logs || [], [overview]);
 
   const metrics = useMemo(() => {
     return [
@@ -61,6 +62,25 @@ export default function AdminDashboard() {
       [formatNumber(alerts.length), "Active Alerts", "Auto generated"],
     ];
   }, [totals, userActivity, alerts]);
+
+  const userActivityChart = useMemo(
+    () => [
+      { label: "Active", value: userActivity.activeUsersToday || 0 },
+      { label: "Inactive", value: userActivity.inactiveUsers || 0 },
+      { label: "High Perf", value: userActivity.highPerformers || 0 },
+      { label: "Failed Logins", value: userActivity.failedLoginUsers || 0 },
+    ],
+    [userActivity],
+  );
+
+  const completionChart = useMemo(
+    () =>
+      (rankings.topCourses || []).slice(0, 5).map((course) => ({
+        label: String(course.title || "").slice(0, 14),
+        value: Math.round(course.score || 0),
+      })),
+    [rankings],
+  );
 
   const weightEntries = Object.entries(optimization.weights || {});
 
@@ -82,6 +102,26 @@ export default function AdminDashboard() {
       </div>
 
       {error ? <div className="card" style={{ padding: 16 }}>{error}</div> : null}
+
+      <div className="grid gap-5 lg:grid-cols-2" style={{ marginBottom: 20 }}>
+        <div className="card admin-card">
+          <div className="admin-card-title">Active User Analytics</div>
+          {loading ? (
+            <div className="activity-empty">Loading chart...</div>
+          ) : (
+            <AdminPerformanceChart data={userActivityChart} color="#34d399" />
+          )}
+        </div>
+
+        <div className="card admin-card">
+          <div className="admin-card-title">Top Course Performance</div>
+          {loading ? (
+            <div className="activity-empty">Loading chart...</div>
+          ) : (
+            <AdminPerformanceChart data={completionChart} color="#60a5fa" />
+          )}
+        </div>
+      </div>
 
       <div className="admin-layout">
         <div className="admin-main">

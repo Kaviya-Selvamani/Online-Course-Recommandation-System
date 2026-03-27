@@ -2,8 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import PlatformBadge from "../components/common/PlatformBadge.jsx";
 import { getBarColor, getMatch } from "../data/courseiq1.js";
-import { fetchCoursesCatalog } from "../services/courseService.js";
-import { enrollCourse, unenrollCourse } from "../services/courseService.js";
+import {
+  enrollCourse,
+  fetchCoursesCatalog,
+  removeBookmark,
+  saveBookmark,
+  unenrollCourse,
+} from "../services/courseService.js";
+import { getSession } from "../services/authService.js";
+import { buildCourseUiTags, buildWhyCourseSummary } from "../services/experienceService.js";
 import { useUiStore } from "../store/ui.js";
 
 function getCourseAccent(course) {
@@ -38,15 +45,21 @@ export default function Courses() {
   const [params] = useSearchParams();
 
   const initialCourseId = params.get("courseId");
+  const session = getSession();
+  const user = useMemo(() => session?.user || {}, [session]);
   const [search, setSearch] = useState("");
   const [diffF, setDiffF] = useState("all");
   const [catF, setCatF] = useState("all");
+  const [ratingF, setRatingF] = useState("all");
   const [priceF, setPriceF] = useState("all");
   const [platF, setPlatF] = useState("all");
   const [view, setView] = useState("all");
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const enrolledCourses = useUiStore((state) => state.enrolledCourses);
+  const bookmarkedCourseIds = useUiStore((state) => state.bookmarkedCourseIds);
+  const addBookmarkId = useUiStore((state) => state.addBookmarkId);
+  const removeBookmarkId = useUiStore((state) => state.removeBookmarkId);
 
   useEffect(() => {
     if (initialCourseId) {
@@ -90,12 +103,15 @@ export default function Courses() {
 
         const matchesDifficulty = diffF === "all" || course.difficulty.toLowerCase() === diffF;
         const matchesCategory = catF === "all" || course.category === catF;
+        const matchesRating =
+          ratingF === "all" ||
+          (ratingF === "4.5" ? Number(course.rating || 0) >= 4.5 : Number(course.rating || 0) >= 4);
         const matchesPrice = priceF === "all" || (priceF === "free" ? course.isFree : !course.isFree);
         const matchesPlatform = platF === "all" || course.platform === platF;
 
-        return matchesSearch && matchesDifficulty && matchesCategory && matchesPrice && matchesPlatform;
+        return matchesSearch && matchesDifficulty && matchesCategory && matchesRating && matchesPrice && matchesPlatform;
       }),
-    [courses, search, diffF, catF, priceF, platF]
+    [courses, search, diffF, catF, ratingF, priceF, platF]
   );
 
   const enrolledIdSet = useMemo(
@@ -109,11 +125,18 @@ export default function Courses() {
   );
 
   const visibleCourses = useMemo(() => {
-    if (view !== "enrolled") return filteredCourses;
-    return filteredCourses.filter((course) =>
-      enrolledIdSet.has(String(course._id))
-    );
-  }, [filteredCourses, view, enrolledIdSet]);
+    if (view === "enrolled") {
+      return filteredCourses.filter((course) =>
+        enrolledIdSet.has(String(course._id))
+      );
+    }
+    if (view === "saved") {
+      return filteredCourses.filter((course) =>
+        bookmarkedCourseIds.some((id) => String(id) === String(course._id))
+      );
+    }
+    return filteredCourses;
+  }, [bookmarkedCourseIds, filteredCourses, view, enrolledIdSet]);
 
   return (
     <div className="page anim">
@@ -126,6 +149,7 @@ export default function Courses() {
         {[
           ["all", "All Courses"],
           ["enrolled", `My Courses (${enrolledCourses.length})`],
+          ["saved", `Saved (${bookmarkedCourseIds.length})`],
         ].map(([value, label]) => (
           <button key={value} className={`ft ${view === value ? "on" : ""}`} onClick={() => setView(value)}>
             {label}
@@ -154,6 +178,12 @@ export default function Courses() {
           ))}
         </select>
 
+        <select className="fi" value={ratingF} onChange={(event) => setRatingF(event.target.value)}>
+          <option value="all">All Ratings</option>
+          <option value="4">4.0+ Rated</option>
+          <option value="4.5">4.5+ Rated</option>
+        </select>
+
         <select className="fi" value={platF} onChange={(event) => setPlatF(event.target.value)}>
           {platforms.map((platform) => (
             <option key={platform} value={platform}>
@@ -180,10 +210,25 @@ export default function Courses() {
           const score = getCatalogScore(course);
           const meta = getMatch(score);
           const isEnrolled = enrolledCourses.some((id) => String(id) === String(course._id));
+          const isSaved = bookmarkedCourseIds.some((id) => String(id) === String(course._id));
           const externalCourseLink = course.courseUrl || "";
+          const experienceTags = buildCourseUiTags(course, courses);
+
+          const routeId = course._id || course.id || course.courseId || course.slug || course.title;
+          const safeRouteId = encodeURIComponent(String(routeId || ""));
 
           return (
-            <div className="card catalog-card lift" key={course._id} onClick={() => navigate(`/course/${course._id}`)}>
+            <div
+              className="card catalog-card lift"
+              key={course._id || course.id || course.title}
+              onClick={() => {
+                if (!routeId) {
+                  alert("Course details are unavailable for this item.");
+                  return;
+                }
+                navigate(`/course/${safeRouteId}`, { state: { course } });
+              }}
+            >
               <div className="catalog-card-banner" style={{ background: getCourseAccent(course) }}>
                 <div className="catalog-card-emoji">{getCourseEmoji(course)}</div>
                 <PlatformBadge platform={course.platform} />
@@ -209,9 +254,14 @@ export default function Courses() {
                 </div>
 
                 <div className="course-card-tags">
-                  {(course.tags || []).map((tag) => (
+                  {[...experienceTags, ...(course.tags || [])].slice(0, 5).map((tag) => (
                     <span key={tag} className="tg">{tag}</span>
                   ))}
+                </div>
+
+                <div className="mt-3 rounded-2xl border border-slate-800/70 bg-slate-950/40 p-3 text-sm leading-6 text-slate-300">
+                  <strong className="mr-2 text-emerald-300">Why this course?</strong>
+                  {buildWhyCourseSummary(course, user)}
                 </div>
 
                 <div className="course-card-actions" onClick={(event) => event.stopPropagation()}>
@@ -251,6 +301,24 @@ export default function Courses() {
                   >
                     {isEnrolled ? "Unenroll" : "Enroll"}
                   </button>
+                  <button
+                    className="btn bg"
+                    onClick={async () => {
+                      try {
+                        if (isSaved) {
+                          await removeBookmark(course._id);
+                          removeBookmarkId(course._id);
+                          return;
+                        }
+                        await saveBookmark(course._id);
+                        addBookmarkId(course._id);
+                      } catch (err) {
+                        alert(err.response?.data?.error || err.message || "Failed to update bookmark.");
+                      }
+                    }}
+                  >
+                    {isSaved ? "Saved" : "Save"}
+                  </button>
                   <button className="btn bg" onClick={() => openExplain(course)}>Explain</button>
                 </div>
               </div>
@@ -267,6 +335,10 @@ export default function Courses() {
               : hasUnknownEnrolled
                 ? "Your enrolled courses were added from recommendations and appear in the Roadmap."
                 : "No enrolled courses match your filters."
+            : view === "saved"
+              ? bookmarkedCourseIds.length === 0
+                ? "No saved courses yet. Bookmark courses to keep them here."
+                : "No saved courses match your filters."
             : "No courses match your filters."}
         </div>
       ) : null}

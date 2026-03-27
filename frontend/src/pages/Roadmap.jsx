@@ -2,27 +2,49 @@ import { motion as Motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchCourseById, fetchCoursesCatalog } from "../services/courseService.js";
+import { fetchRecommendations } from "../services/recommendationService.js";
+import { getSession } from "../services/authService.js";
+import { buildLearningExperience, normalizeCourseId } from "../services/experienceService.js";
 import { useUiStore } from "../store/ui.js";
+
+function resolveCourseUrl(course) {
+  return course?.courseUrl || course?.url || course?.courseURL || course?.link || "";
+}
 
 export default function Roadmap() {
   const navigate = useNavigate();
-  const enrolledIds = useUiStore((s) => s.enrolledCourses) || [];
+  const session = getSession();
+  const user = useMemo(() => session?.user || {}, [session]);
+  const rawEnrolledIds = useUiStore((s) => s.enrolledCourses);
+  const enrolledIds = useMemo(() => rawEnrolledIds || [], [rawEnrolledIds]);
+  const bookmarkedCourseIds = useUiStore((state) => state.bookmarkedCourseIds);
   const [catalogCourses, setCatalogCourses] = useState([]);
+  const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
-    fetchCoursesCatalog()
-      .then((data) => {
-        if (!cancelled) {
-          setCatalogCourses(Array.isArray(data) ? data : []);
-          setLoading(false);
-        }
+    Promise.allSettled([fetchCoursesCatalog(), fetchRecommendations()])
+      .then(([catalogResult, recommendationResult]) => {
+        if (cancelled) return;
+
+        setCatalogCourses(
+          catalogResult.status === "fulfilled" && Array.isArray(catalogResult.value)
+            ? catalogResult.value
+            : [],
+        );
+        setRecommendations(
+          recommendationResult.status === "fulfilled"
+            ? recommendationResult.value.recommendations || []
+            : [],
+        );
+        setLoading(false);
       })
       .catch(() => {
         if (!cancelled) {
           setCatalogCourses([]);
+          setRecommendations([]);
           setLoading(false);
         }
       });
@@ -32,31 +54,41 @@ export default function Roadmap() {
     };
   }, []);
 
-  const enrolledCourses = useMemo(
+  const experience = useMemo(
     () =>
-      enrolledIds.map((id) => {
-        const known = catalogCourses.find((course) => String(course._id) === String(id));
-        if (known) return known;
-        return {
-          _id: id,
-          title: "Enrolled Course",
-          tags: ["In Progress"],
-        };
+      buildLearningExperience({
+        user,
+        recommendations,
+        catalogCourses,
+        enrolledCourseIds: enrolledIds,
+        bookmarkedCourseIds,
       }),
-    [catalogCourses, enrolledIds]
+    [bookmarkedCourseIds, catalogCourses, enrolledIds, recommendations, user],
   );
 
-  if (enrolledCourses.length === 0) {
+  if (loading) {
     return (
       <div className="page anim">
         <div className="ph">
           <div className="pt">Learning Roadmap</div>
-          <div className="ps">Start with recommendations, then enroll to build your roadmap.</div>
+          <div className="ps">Building your step-by-step learning path...</div>
         </div>
-        <div className="card glass-card" style={{ padding: 20 }}>
-          <div className="analytics-title">No enrolled courses yet</div>
+        <div className="empty-state">Loading roadmap...</div>
+      </div>
+    );
+  }
+
+  if (!experience.roadmapSteps.length) {
+    return (
+      <div className="page anim">
+        <div className="ph">
+          <div className="pt">Learning Roadmap</div>
+          <div className="ps">Enroll in a course to unlock your next steps.</div>
+        </div>
+        <div className="card glass-card" style={{ padding: 24 }}>
+          <div className="analytics-title">No roadmap steps yet</div>
           <div className="analytics-subtitle" style={{ marginTop: 6 }}>
-            Your roadmap will appear after you enroll in a course.
+            Your roadmap unlocks automatically after your first enrollment.
           </div>
           <div style={{ marginTop: 14 }}>
             <Motion.button
@@ -73,108 +105,41 @@ export default function Roadmap() {
     );
   }
 
-  const phases = enrolledCourses.map((course, index) => ({
-    phase: `Course ${index + 1}`,
-    title: course.title || "Enrolled Course",
-    desc:
-      course.description ||
-      `Deep dive into ${course.title || "this course"} and track your progress here.`,
-    courses: (course.tags && course.tags.length ? course.tags : [course.title || "In Progress"]),
-    done: false,
-    active: index === 0,
-    courseId: course._id,
-    skills: (course.tags || []).slice(0, 3),
-  }));
-  const totalPhases = phases.length;
-  const completedPhases = phases.filter((phase) => phase.done).length;
-  const progressPercent = Math.round((completedPhases / Math.max(totalPhases, 1)) * 100);
-  const nextMilestone = phases.find((phase) => !phase.done)?.title || "Capstone Complete";
+  const totalSteps = experience.roadmapSteps.length;
+  const completedSteps = experience.roadmapSteps.filter((step) => step.status === "completed").length;
+  const activeStep = experience.roadmapSteps.find((step) => step.status === "active") || experience.roadmapSteps[0];
 
-  const normalizeText = (value) =>
-    String(value || "")
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+  const handleContinue = async (step) => {
+    if (step.locked) return;
 
-  const buildTokens = (value) =>
-    normalizeText(value)
-      .split(" ")
-      .filter((token) => token.length > 2 && !["and", "for", "with", "the"].includes(token));
-
-  const scoreOverlap = (candidateTokens, titleTokens) => {
-    if (!candidateTokens.length || !titleTokens.length) return 0;
-    const titleSet = new Set(titleTokens);
-    const overlap = candidateTokens.reduce((count, token) => count + (titleSet.has(token) ? 1 : 0), 0);
-    return overlap / titleTokens.length;
-  };
-
-  const resolvePhaseCourse = (phase) => {
-    if (phase.courseId) {
-      const byId = catalogCourses.find((course) => String(course._id) === String(phase.courseId));
-      if (byId) return byId;
+    const directUrl = resolveCourseUrl(step.course);
+    if (directUrl) {
+      window.open(directUrl, "_blank", "noopener,noreferrer");
+      return;
     }
 
-    const candidates = [phase.title, ...(phase.courses || [])].map(buildTokens).filter((tokens) => tokens.length > 0);
-    let best = null;
-    let bestScore = 0;
+    let course = step.course;
+    const courseId = normalizeCourseId(step.course) || step.id;
 
-    catalogCourses.forEach((course) => {
-      const title = normalizeText(course.title);
-      const titleTokens = buildTokens(course.title);
-
-      candidates.forEach((candidateTokens) => {
-        const candidateText = candidateTokens.join(" ");
-        const exact = title.includes(candidateText) || candidateText.includes(title);
-        const overlap = scoreOverlap(candidateTokens, titleTokens);
-        const score = exact ? 1 : overlap;
-
-        if (score > bestScore) {
-          bestScore = score;
-          best = course;
-        }
-      });
-    });
-
-    return bestScore >= 0.34 ? best : null;
-  };
-
-  const resolveCourseUrl = (course) =>
-    course?.courseUrl || course?.url || course?.courseURL || course?.link || "";
-
-  const handleContinue = async (phase) => {
-    let course = resolvePhaseCourse(phase);
-
-    if (!course && phase.courseId) {
+    if (!course && courseId) {
       try {
-        course = await fetchCourseById(phase.courseId);
-      } catch (error) {
+        course = await fetchCourseById(courseId);
+      } catch {
         course = null;
       }
     }
 
-    const url = resolveCourseUrl(course);
-    if (url) {
-      window.open(url, "_blank", "noopener,noreferrer");
+    const fetchedUrl = resolveCourseUrl(course);
+    if (fetchedUrl) {
+      window.open(fetchedUrl, "_blank", "noopener,noreferrer");
       return;
     }
 
-    const fallbackId = course?._id || phase.courseId;
-    if (fallbackId) {
-      navigate(`/course/${fallbackId}`);
-      return;
-    }
-
-    navigate("/courses");
-  };
-
-  const handleViewDetails = (phase) => {
-    const course = resolvePhaseCourse(phase);
-    const courseId = course?._id || phase.courseId;
     if (courseId) {
-      navigate(`/course/${courseId}`);
+      navigate(`/course/${encodeURIComponent(String(courseId))}`, { state: { course } });
       return;
     }
+
     navigate("/courses");
   };
 
@@ -182,103 +147,135 @@ export default function Roadmap() {
     <div className="page anim">
       <div className="ph">
         <div className="pt">Learning Roadmap</div>
-        <div className="ps">Your personalized path to ML Engineer · {progressPercent}% complete</div>
+        <div className="ps">
+          Step-by-step progression with unlocks, milestones, and external continue links.
+        </div>
       </div>
 
-      {loading ? <div className="empty-state">Loading roadmap...</div> : null}
-
       <Motion.div
-        className="card roadmap-progress-card glass-card"
+        className="rounded-[30px] border border-slate-800/70 bg-slate-900/80 p-6"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.22 }}
+        transition={{ duration: 0.24 }}
       >
-        <div className="roadmap-progress-head">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="analytics-title">Career Progress</div>
-            <div className="analytics-subtitle">Next milestone: <strong>{nextMilestone}</strong></div>
+            <div className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-300">Roadmap Progress</div>
+            <div className="mt-2 text-3xl font-semibold text-white">{experience.completionPercent}% complete</div>
+            <div className="mt-2 text-sm text-slate-400">
+              {completedSteps}/{totalSteps} steps completed. Active focus: <strong className="text-slate-200">{activeStep?.title}</strong>
+            </div>
           </div>
-          <div className="roadmap-progress-pill">{completedPhases}/{totalPhases} phases</div>
+          <div className="rounded-full border border-sky-400/20 bg-sky-400/10 px-4 py-2 text-sm font-semibold text-sky-200">
+            Level {experience.level} • {experience.streakDays}-day streak
+          </div>
         </div>
-        <div className="roadmap-progress-track">
+
+        <div className="mt-6 h-4 overflow-hidden rounded-full bg-slate-800">
           <Motion.div
-            className="roadmap-progress-fill"
+            className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-sky-400 to-indigo-400"
             initial={{ width: 0 }}
-            animate={{ width: `${progressPercent}%` }}
-            transition={{ duration: 0.7, ease: "easeOut" }}
+            animate={{ width: `${experience.completionPercent}%` }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
           />
         </div>
       </Motion.div>
 
-      <div className="g4" style={{ marginBottom: 24 }}>
+      <div className="mt-5 grid gap-4 md:grid-cols-4">
         {[
-          ["Phases Done", `${completedPhases} / ${totalPhases}`],
-          ["Courses Left", `${Math.max(totalPhases - completedPhases, 0) * 2}`],
-          ["Est. Completion", "14 weeks"],
-          ["Career Fit", "95%"],
-        ].map(([l, v]) => (
-          <Motion.div
-            className="card sc lift glass-card"
-            key={l}
-            whileHover={{ y: -3 }}
-            transition={{ duration: 0.2 }}
-          >
-            <div className="sl">{l}</div>
-            <div className="sv">{v}</div>
-          </Motion.div>
+          ["Unlocked", `${experience.roadmapSteps.filter((step) => !step.locked).length}`],
+          ["Locked", `${experience.roadmapSteps.filter((step) => step.locked).length}`],
+          ["Completed", `${completedSteps}`],
+          ["Saved", `${bookmarkedCourseIds.length}`],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-[24px] border border-slate-800/70 bg-slate-900/80 p-5">
+            <div className="text-xs uppercase tracking-[0.18em] text-slate-400">{label}</div>
+            <div className="mt-2 text-2xl font-semibold text-white">{value}</div>
+          </div>
         ))}
       </div>
 
-      <div className="rm-track">
-        {phases.map((p, i) => (
-          <Motion.div
-            className="rm-item"
-            key={p.title}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.22, delay: i * 0.03 }}
-          >
-            <div className={"rm-dot" + (p.done ? " done" : "") + (p.active ? " active" : "")}>
-              {p.done ? "✓" : p.active ? "●" : i + 1}
-            </div>
-            <div className="rm-card glass-card">
-              <div className="rm-phase">{p.phase}</div>
-              <div className="rm-title">{p.title}</div>
-              <div className="rm-desc">{p.desc}</div>
-              <div className="rm-status-line">
-                <span className={`rm-status-pill ${p.done ? "done" : p.active ? "active" : "pending"}`}>
-                  {p.done ? "Completed" : p.active ? "In Progress" : "Upcoming"}
-                </span>
-              </div>
-              <div className="rm-courses">
-                {p.courses.map((c) => (
-                  <span key={c} className="tg" style={{ fontSize: 10.5 }}>
-                    {c}
-                  </span>
-                ))}
-              </div>
-              {p.skills && (
-                <div style={{ marginTop: 12, borderTop: '1px dashed var(--bd)', paddingTop: 8 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ac)', marginBottom: 4 }}>UNDERSTAND DEEPER:</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {p.skills.map(s => (
-                      <div key={s} style={{ fontSize: 11, color: 'var(--t2)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--ac)' }} /> {s}
-                      </div>
-                    ))}
+      <div className="mt-6 space-y-4">
+        {experience.roadmapSteps.map((step, index) => {
+          const statusColor =
+            step.status === "completed"
+              ? "border-emerald-400/30 bg-emerald-400/10"
+              : step.status === "active"
+                ? "border-sky-400/30 bg-sky-400/10"
+                : "border-slate-800/70 bg-slate-900/80";
+
+          return (
+            <Motion.div
+              key={`${step.id}-${index}`}
+              className={`rounded-[28px] border p-5 ${statusColor}`}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.24, delay: index * 0.04 }}
+            >
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex gap-4">
+                  <div
+                    className={`flex h-12 w-12 items-center justify-center rounded-2xl text-lg font-semibold ${
+                      step.status === "completed"
+                        ? "bg-emerald-400/20 text-emerald-200"
+                        : step.status === "active"
+                          ? "bg-sky-400/20 text-sky-200"
+                          : "bg-slate-800 text-slate-300"
+                    }`}
+                  >
+                    {step.status === "completed" ? "✓" : step.locked ? "🔒" : index + 1}
+                  </div>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="text-lg font-semibold text-white">{step.title}</div>
+                      <span className="rounded-full border border-slate-700/70 bg-slate-950/60 px-3 py-1 text-xs font-semibold text-slate-200">
+                        {step.recommended ? "Upcoming Recommendation" : "Roadmap Step"}
+                      </span>
+                      <span className="rounded-full border border-slate-700/70 bg-slate-950/60 px-3 py-1 text-xs font-semibold text-slate-200">
+                        {step.status === "completed" ? "Completed" : step.status === "active" ? "Active" : "Locked"}
+                      </span>
+                    </div>
+                    <div className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">{step.description}</div>
+                    <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-800">
+                      <Motion.div
+                        className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-sky-400"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${step.progress}%` }}
+                        transition={{ duration: 0.7, ease: "easeOut" }}
+                      />
+                    </div>
+                    <div className="mt-2 text-xs text-slate-400">{step.progress}% progress</div>
                   </div>
                 </div>
-              )}
-              {p.active ? (
-                <div style={{ marginTop: 10, display: "flex", gap: 7 }}>
-                  <Motion.button className="btn bp bsm" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} onClick={() => handleContinue(p)}>Continue</Motion.button>
-                  <Motion.button className="btn bg bsm" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} onClick={() => handleViewDetails(p)}>View Details</Motion.button>
+
+                <div className="flex flex-wrap gap-3">
+                  <Motion.button
+                    className="btn bp"
+                    whileHover={{ scale: step.locked ? 1 : 1.03 }}
+                    whileTap={{ scale: step.locked ? 1 : 0.98 }}
+                    onClick={() => handleContinue(step)}
+                    disabled={step.locked}
+                    style={step.locked ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+                  >
+                    {step.status === "completed" ? "Review" : step.locked ? "Locked" : "Continue"}
+                  </Motion.button>
+                  <Motion.button
+                    className="btn bg"
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      const courseId = normalizeCourseId(step.course) || step.id;
+                      navigate(`/course/${encodeURIComponent(String(courseId))}`, { state: { course: step.course } });
+                    }}
+                  >
+                    View Details
+                  </Motion.button>
                 </div>
-              ) : null}
-            </div>
-          </Motion.div>
-        ))}
+              </div>
+            </Motion.div>
+          );
+        })}
       </div>
     </div>
   );
-} 
+}

@@ -18,7 +18,7 @@ export function login({ user, role }) {
 
 export function logout() {
   clearSession();
-  useUiStore.getState().setEnrolledCourses([]);
+  useUiStore.getState().resetUiState();
 }
 
 function normalizeArray(value) {
@@ -47,6 +47,8 @@ function mapUserPayload(data = {}) {
     bio: data.bio || "",
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
+    lastLoginAt: data.lastLoginAt,
+    lastActivityAt: data.lastActivityAt,
     notificationSettings: data.notificationSettings || {
       emailNotifications: true,
       recommendationAlerts: true,

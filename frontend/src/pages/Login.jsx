@@ -8,7 +8,7 @@ export default function Login() {
   const from = location.state?.from?.pathname || "/dashboard";
 
   const [role, setRole] = useState("student");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => location.state?.email || "");
   const [pass, setPass] = useState("");
   const [adminId, setAdminId] = useState("");
   const [err, setErr] = useState("");
@@ -19,12 +19,6 @@ export default function Login() {
       navigate(session.role === "admin" ? "/admin" : "/dashboard", { replace: true });
     }
   }, [navigate]);
-
-  useEffect(() => {
-    if (location.state?.email) {
-      setEmail(location.state.email);
-    }
-  }, [location.state]);
 
   const getLoginErrorMessage = (error) => {
     const status = error.response?.status;

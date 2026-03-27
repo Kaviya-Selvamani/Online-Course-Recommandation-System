@@ -1,4 +1,15 @@
 import { motion as Motion } from "framer-motion";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart as ReBarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 function polarToCartesian(cx, cy, radius, angleDeg) {
   const angle = ((angleDeg - 90) * Math.PI) / 180;
@@ -199,6 +210,78 @@ export function DistributionBars({ data = [] }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+export function SkillGrowthTrendChart({ data = [], legend = [] }) {
+  if (!data.length || !legend.length) {
+    return <div className="empty-state" style={{ padding: 24 }}>No growth data available.</div>;
+  }
+
+  const colors = ["#34d399", "#60a5fa", "#f59e0b"];
+
+  return (
+    <div style={{ width: "100%", height: 280 }}>
+      <ResponsiveContainer>
+        <AreaChart data={data} margin={{ top: 12, right: 12, left: -18, bottom: 0 }}>
+          <defs>
+            {legend.map((item, index) => (
+              <linearGradient id={`skill-gradient-${item.key}`} key={item.key} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={colors[index % colors.length]} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={colors[index % colors.length]} stopOpacity={0.02} />
+              </linearGradient>
+            ))}
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.18)" />
+          <XAxis dataKey="week" stroke="rgba(148, 163, 184, 0.75)" fontSize={12} />
+          <YAxis stroke="rgba(148, 163, 184, 0.75)" fontSize={12} domain={[0, 100]} />
+          <Tooltip
+            contentStyle={{
+              background: "rgba(15, 23, 42, 0.94)",
+              border: "1px solid rgba(148, 163, 184, 0.2)",
+              borderRadius: 16,
+            }}
+          />
+          {legend.map((item, index) => (
+            <Area
+              key={item.key}
+              type="monotone"
+              dataKey={item.key}
+              name={item.label}
+              stroke={colors[index % colors.length]}
+              fill={`url(#skill-gradient-${item.key})`}
+              strokeWidth={2.5}
+            />
+          ))}
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+export function AdminPerformanceChart({ data = [], valueKey = "value", color = "#34d399" }) {
+  if (!data.length) {
+    return <div className="empty-state" style={{ padding: 24 }}>No analytics available.</div>;
+  }
+
+  return (
+    <div style={{ width: "100%", height: 260 }}>
+      <ResponsiveContainer>
+        <ReBarChart data={data} margin={{ top: 12, right: 12, left: -22, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.15)" />
+          <XAxis dataKey="label" stroke="rgba(148, 163, 184, 0.75)" fontSize={12} />
+          <YAxis stroke="rgba(148, 163, 184, 0.75)" fontSize={12} />
+          <Tooltip
+            contentStyle={{
+              background: "rgba(15, 23, 42, 0.94)",
+              border: "1px solid rgba(148, 163, 184, 0.2)",
+              borderRadius: 16,
+            }}
+          />
+          <Bar dataKey={valueKey} fill={color} radius={[10, 10, 0, 0]} />
+        </ReBarChart>
+      </ResponsiveContainer>
     </div>
   );
 }

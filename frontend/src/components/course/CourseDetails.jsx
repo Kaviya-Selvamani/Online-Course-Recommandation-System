@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useOutletContext, useParams } from "react-router-dom";
-import { enrollCourse, fetchCourseById, unenrollCourse } from "../../services/courseService.js";
+import { useLocation, useNavigate, useOutletContext, useParams } from "react-router-dom";
+import {
+  enrollCourse,
+  fetchCourseById,
+  fetchCoursesCatalog,
+  removeBookmark,
+  saveBookmark,
+  unenrollCourse,
+} from "../../services/courseService.js";
 import FeedbackModal from "./FeedbackModal.jsx";
+import { buildCourseUiTags, buildWhyCourseSummary } from "../../services/experienceService.js";
+import { getSession } from "../../services/authService.js";
 import { useUiStore } from "../../store/ui.js";
 
 const CATEGORY_ACCENTS = [
@@ -35,8 +44,14 @@ function formatEnrollmentDate(value) {
 export default function CourseDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { openExplain } = useOutletContext();
   const enrolledCourses = useUiStore((s) => s.enrolledCourses) || [];
+  const bookmarkedCourseIds = useUiStore((s) => s.bookmarkedCourseIds) || [];
+  const addBookmarkId = useUiStore((s) => s.addBookmarkId);
+  const removeBookmarkId = useUiStore((s) => s.removeBookmarkId);
+  const session = getSession();
+  const user = session?.user || {};
 
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -48,27 +63,102 @@ export default function CourseDetails() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError("");
+    const stateCourse = location.state?.course || null;
+    const routeId = decodeURIComponent(String(id || ""));
 
-    fetchCourseById(id)
-      .then((data) => {
+    const normalizeKey = (value) =>
+      String(value || "")
+        .trim()
+        .toLowerCase();
+
+    const isLikelyObjectId = (value) => /^[a-f0-9]{24}$/i.test(String(value || ""));
+
+    const findCourseInCatalog = (catalog = [], key = "") => {
+      if (!Array.isArray(catalog) || !catalog.length) return null;
+      const target = normalizeKey(key);
+      return (
+        catalog.find((course) => normalizeKey(course?._id) === target) ||
+        catalog.find((course) => normalizeKey(course?.id) === target) ||
+        catalog.find((course) => normalizeKey(course?.courseId) === target) ||
+        catalog.find((course) => normalizeKey(course?.slug) === target) ||
+        catalog.find((course) => normalizeKey(course?.title) === target) ||
+        null
+      );
+    };
+
+    const applyCourseData = (nextCourse) => {
+      setCourse(nextCourse);
+      setEnrollmentCount(nextCourse?.enrollments || 0);
+      setRatingOverride(nextCourse?.rating || 0);
+      setLoading(false);
+      setError("");
+    };
+
+    const resolveCourse = async () => {
+      if (stateCourse && !cancelled) {
+        applyCourseData(stateCourse);
+      } else if (!cancelled) {
+        setLoading(true);
+        setError("");
+      }
+
+      if (!routeId && stateCourse) {
+        return;
+      }
+
+      if (!routeId) {
         if (!cancelled) {
-          setCourse(data);
+          setError("Course not found.");
           setLoading(false);
         }
-      })
-      .catch((err) => {
+        return;
+      }
+
+      if (!isLikelyObjectId(routeId)) {
+        try {
+          const catalog = await fetchCoursesCatalog();
+          const matched = findCourseInCatalog(catalog, routeId);
+          if (matched) {
+            if (!cancelled) {
+              applyCourseData(matched);
+            }
+            return;
+          }
+        } catch {
+          // Fall through to API fetch / error handling.
+        }
+
+        if (stateCourse) {
+          if (!cancelled) {
+            applyCourseData(stateCourse);
+          }
+          return;
+        }
+      }
+
+      try {
+        const data = await fetchCourseById(routeId);
         if (!cancelled) {
+          applyCourseData(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          if (stateCourse) {
+            applyCourseData(stateCourse);
+            return;
+          }
           setError(err.response?.data?.error || "Course not found.");
           setLoading(false);
         }
-      });
+      }
+    };
+
+    resolveCourse();
 
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, location.state]);
 
   useEffect(() => {
     if (course) {
@@ -76,11 +166,6 @@ export default function CourseDetails() {
       return () => clearTimeout(t);
     }
     return undefined;
-  }, [course]);
-
-  useEffect(() => {
-    setEnrollmentCount(course?.enrollments || 0);
-    setRatingOverride(course?.rating || 0);
   }, [course]);
 
   const accent = resolveAccent(course?.category);
@@ -99,6 +184,8 @@ export default function CourseDetails() {
   }, [course]);
 
   const matchScore = Math.round(course?.relevanceScore || course?.matchPercentage || 0);
+  const isSaved = bookmarkedCourseIds.some((bookmarkId) => String(bookmarkId) === String(course?._id));
+  const experienceTags = buildCourseUiTags(course, [course]);
 
   if (loading) {
     return (
@@ -159,6 +246,11 @@ export default function CourseDetails() {
             </span>
           </div>
           <div style={{ fontSize: 13, color: "var(--t2)", lineHeight: 1.6, marginBottom: 14 }}>{course.description}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+            {experienceTags.map((tag) => (
+              <span key={tag} className="tg">{tag}</span>
+            ))}
+          </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button
               className="btn bp"
@@ -197,6 +289,24 @@ export default function CourseDetails() {
             </button>
             <button
               className="btn bg"
+              onClick={async () => {
+                try {
+                  if (isSaved) {
+                    await removeBookmark(course._id);
+                    removeBookmarkId(course._id);
+                    return;
+                  }
+                  await saveBookmark(course._id);
+                  addBookmarkId(course._id);
+                } catch (err) {
+                  alert(err.response?.data?.error || err.message || "Failed to update bookmark.");
+                }
+              }}
+            >
+              {isSaved ? "Saved" : "Save"}
+            </button>
+            <button
+              className="btn bg"
               onClick={() => {
                 if (!canExplain) {
                   alert("Personalized match insights appear in your Recommendations.");
@@ -219,6 +329,14 @@ export default function CourseDetails() {
             <p style={{ fontSize: 13.5, color: "var(--t2)", lineHeight: 1.7 }}>
               {course.description} This course includes hands-on projects and a final capstone.
             </p>
+            <div style={{ marginTop: 14, borderRadius: 18, border: "1px solid var(--bd)", background: "rgba(15,23,42,0.35)", padding: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--ac)" }}>
+                Why this course?
+              </div>
+              <div style={{ marginTop: 8, fontSize: 13, color: "var(--t2)", lineHeight: 1.7 }}>
+                {buildWhyCourseSummary(course, user)}
+              </div>
+            </div>
           </div>
           <div className="cd-section">
             <div className="cd-stitle">Provider & Platform</div>

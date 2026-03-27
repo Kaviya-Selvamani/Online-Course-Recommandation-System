@@ -132,3 +132,35 @@ export async function fetchCourseById(courseId) {
   const { data } = await api.get(`/courses/${courseId}`);
   return data;
 }
+
+export async function fetchBookmarks() {
+  if (!getToken()) return { bookmarks: [], bookmarkIds: [] };
+
+  const { data } = await api.get("/courses/bookmarks/me", {
+    headers: getAuthHeaders(),
+  });
+
+  return data;
+}
+
+export async function saveBookmark(courseId) {
+  if (!getToken()) throw new Error("Not logged in");
+
+  const { data } = await api.post(
+    `/courses/bookmarks/${courseId}`,
+    {},
+    { headers: getAuthHeaders() }
+  );
+
+  return data;
+}
+
+export async function removeBookmark(courseId) {
+  if (!getToken()) throw new Error("Not logged in");
+
+  const { data } = await api.delete(`/courses/bookmarks/${courseId}`, {
+    headers: getAuthHeaders(),
+  });
+
+  return data;
+}

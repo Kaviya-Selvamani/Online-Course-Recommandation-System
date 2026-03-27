@@ -1,5 +1,6 @@
 import Course from "../models/Course.js";
 import Enrollment from "../models/Enrollment.js";
+import Bookmark from "../models/Bookmark.js";
 import User from "../models/User.js";
 import mongoose from "mongoose";
 import {
@@ -26,6 +27,10 @@ function mapEnrollmentRosterEntry(entry = {}) {
         }
       : null,
   };
+}
+
+function isValidObjectId(value) {
+  return mongoose.Types.ObjectId.isValid(String(value || ""));
 }
 
 export async function getCourses(req, res) {
@@ -57,6 +62,82 @@ export async function getCourses(req, res) {
   }
 }
 
+export async function getMyBookmarks(req, res) {
+  try {
+    const bookmarks = await Bookmark.find({ user: req.user.id })
+      .populate("course")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const courses = bookmarks
+      .map((bookmark) => {
+        if (!bookmark.course) return null;
+        return {
+          ...bookmark.course,
+          bookmarkedAt: bookmark.createdAt,
+        };
+      })
+      .filter(Boolean);
+
+    return res.json({
+      total: courses.length,
+      bookmarks: courses,
+      bookmarkIds: courses.map((course) => String(course._id)),
+    });
+  } catch (error) {
+    return res.status(500).json({ error: "Failed to fetch bookmarks." });
+  }
+}
+
+export async function addBookmark(req, res) {
+  try {
+    const { courseId } = req.params;
+    if (!isValidObjectId(courseId)) {
+      return res.status(400).json({ error: "Invalid course ID." });
+    }
+
+    const course = await Course.findById(courseId).lean();
+    if (!course) {
+      return res.status(404).json({ error: "Course not found." });
+    }
+
+    const bookmark = await Bookmark.findOneAndUpdate(
+      { user: req.user.id, course: courseId },
+      { $setOnInsert: { user: req.user.id, course: courseId } },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    ).lean();
+
+    return res.status(201).json({
+      success: true,
+      bookmarkId: bookmark?._id,
+      courseId: String(course._id),
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      return res.status(200).json({ success: true, courseId: req.params.courseId });
+    }
+    return res.status(500).json({ error: "Unable to save bookmark." });
+  }
+}
+
+export async function removeBookmark(req, res) {
+  try {
+    const { courseId } = req.params;
+    if (!isValidObjectId(courseId)) {
+      return res.status(400).json({ error: "Invalid course ID." });
+    }
+
+    await Bookmark.findOneAndDelete({ user: req.user.id, course: courseId });
+
+    return res.json({
+      success: true,
+      courseId: String(courseId),
+    });
+  } catch (error) {
+    return res.status(500).json({ error: "Unable to remove bookmark." });
+  }
+}
+
 export async function getCourseById(req, res) {
   try {
     const { id } = req.params;
@@ -64,7 +145,7 @@ export async function getCourseById(req, res) {
       return res.status(400).json({ error: "Course ID is required." });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (!isValidObjectId(id)) {
       return res.status(400).json({ error: "Invalid course ID." });
     }
 
@@ -169,7 +250,7 @@ export async function enrollInCourse(req, res) {
     user.enrolledCourses.push(normalizedCourseId);
     await user.save();
 
-    if (mongoose.Types.ObjectId.isValid(normalizedCourseId)) {
+    if (isValidObjectId(normalizedCourseId)) {
       await Enrollment.findOneAndUpdate(
         { user: user._id, course: normalizedCourseId },
         {
@@ -196,7 +277,7 @@ export async function enrollInCourse(req, res) {
 export async function getRecommendationsForUser(req, res) {
   try {
     const { userId } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
+    if (!isValidObjectId(userId)) {
       return res.status(400).json({ error: "Invalid user ID." });
     }
 
